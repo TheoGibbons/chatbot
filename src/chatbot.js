@@ -406,7 +406,7 @@
       this.$launcher.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); } });
       this.$header.querySelector('#cb-close').addEventListener('click', () => this.close());
       this.$header.querySelector('#cb-theme').addEventListener('click', () => {
-        this.setTheme(this.state.theme === 'light' ? 'dark' : this.state.theme === 'dark' ? 'auto' : 'light');
+        this.setTheme(this.state.theme === 'auto' ? 'dark' : this.state.theme === 'dark' ? 'light' : 'auto');
       });
       this.$header.querySelector('#cb-new').addEventListener('click', () => this._promptNewConversation());
       this.$header.querySelector('#cb-users').addEventListener('click', () => this._openParticipants());
