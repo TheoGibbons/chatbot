@@ -407,9 +407,26 @@
       this.$menu.querySelector('#cb-now').addEventListener('click', () => { this.$menu.classList.remove('open'); this._sendNow(); });
       this.$menu.querySelector('#cb-sched').addEventListener('click', () => { this.$menu.classList.remove('open'); this._openSchedulePicker(); });
 
-      // Resize scroll to bottom when new content
-      const ro = new ResizeObserver(() => this._scrollThreadToEnd());
+      // Resize scroll to bottom when new content size changes (only if near bottom)
+      const ro = new ResizeObserver(() => {
+        const el = this.$thread; if (!el) return;
+        const dist = el.scrollHeight - el.clientHeight - el.scrollTop;
+        if (dist < 120) this._scrollThreadToEnd();
+      });
       ro.observe(this.$thread);
+
+      // Mutation observer: when new message nodes are added, scroll to bottom (only if near bottom)
+      const mo = new MutationObserver((mutations) => {
+        const el = this.$thread; if (!el) return;
+        for (const m of mutations) {
+          if (m.type === 'childList' && m.addedNodes && m.addedNodes.length) {
+            const dist = el.scrollHeight - el.clientHeight - el.scrollTop;
+            if (dist < 120) this._scrollThreadToEnd();
+            break;
+          }
+        }
+      });
+      mo.observe(this.$thread, { childList: true });
     }
 
     async _start(){
@@ -470,6 +487,11 @@
       for (const m of newMessages) this.emitter.emit('message', m);
       if (typing.length) this.emitter.emit('typing', typing);
       this._updateUnreadBadge();
+
+      // If new messages arrived for the active conversation, scroll to bottom
+      if (newMessages.some(m => m.conversationId === this.state.activeId)) {
+        this._scrollThreadToEnd();
+      }
     }
     _startPolling(){
       const interval = clamp(Number(this.settings.pollForMessages)||10000, 2000, 60000);
@@ -555,7 +577,13 @@
       if (scrollToEnd) this._scrollThreadToEnd();
     }
     _scrollThreadToEnd(){
-      this.$thread.scrollTop = this.$thread.scrollHeight + 9999;
+      const el = this.$thread; if (!el) return;
+      // Use rAF twice to ensure DOM layout is flushed before scrolling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight;
+        });
+      });
     }
 
     _renderTyping(){
@@ -836,7 +864,7 @@
     }
 
     // ------ Public API ------
-    open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); }
+    open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); this._scrollThreadToEnd(); }
     close(){ this.state.open = false; this.$win.classList.remove('cb-open'); }
     toggle(){ this.state.open ? this.close() : this.open(); }
     async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true);} return r.conversation; }

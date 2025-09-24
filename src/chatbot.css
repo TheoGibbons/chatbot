@@ -72,7 +72,6 @@
   box-shadow: var(--cb-elev);
   display: none;
   flex-direction: column;
-  overflow: hidden;
   z-index: var(--cb-z);
 }
 .cb-window.cb-open { display: flex; }
@@ -112,8 +111,8 @@
 .cb-convo-meta { font: 11px/1 var(--cb-font); color: var(--cb-muted); margin-top: 2px; }
 
 /* Messages area */
-.cb-messages { display: flex; flex-direction: column; height: 100%; }
-.cb-thread { flex: 1; overflow-y: auto; padding: 12px; background: var(--cb-surface); }
+.cb-messages { display: flex; overflow-y: auto; flex-direction: column; height: 100%; }
+.cb-thread { flex: 1; padding: 12px; background: var(--cb-surface); }
 .cb-msg { display: grid; grid-template-columns: 28px 1fr; gap: 8px; margin-bottom: 10px; }
 .cb-avatar { width: 28px; height: 28px; border-radius: 9999px; background: #cbd5e1; display: inline-flex; align-items: center; justify-content: center; font: 600 12px/1 var(--cb-font); color: #334155; }
 .cb-bubble { background: var(--cb-bg); border: 1px solid var(--cb-border); border-radius: 12px; padding: 8px 10px; }
@@ -156,4 +155,4 @@
 
 /* Tooltip */
 .cb-tooltip { position: relative; }
-.cb-tooltip:hover::after { content: attr(data-tip); position: absolute; bottom: 100%; right: 0; transform: translateY(-6px); background: #111827; color: #fff; padding: 6px 8px; border-radius: 6px; font: 12px/1 var(--cb-font); white-space: nowrap; }
+.cb-tooltip[data-tip]:not([data-tip=""]):hover::after { content: attr(data-tip); position: absolute; bottom: 100%; right: 0; transform: translateY(-6px); background: #111827; color: #fff; padding: 6px 8px; border-radius: 6px; font: 12px/1 var(--cb-font); white-space: nowrap; }
