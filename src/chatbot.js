@@ -388,6 +388,15 @@
       const dark = this.state.theme === 'dark' || (this.state.theme === 'auto' && mql.matches);
       this.$win.classList.toggle('cb-dark', dark);
       this.$launcher.classList.toggle('cb-dark', dark);
+      // Update theme toggle icon based on selected theme
+      const btn = this.$header?.querySelector('#cb-theme');
+      if (btn){
+        btn.innerHTML = '';
+        if (this.state.theme === 'auto') btn.appendChild(this._iconMonitor());
+        else if (this.state.theme === 'dark') btn.appendChild(this._iconMoon());
+        else btn.appendChild(this._iconSun());
+        btn.title = `Theme: ${this.state.theme}`;
+      }
     }
 
     _wireEvents(){
@@ -400,45 +409,11 @@
       this.$header.querySelector('#cb-users').addEventListener('click', () => this._openParticipants());
       this.$header.querySelector('#cb-full').addEventListener('click', () => this._toggleFullscreen());
 
-      // Composer events
-      this.$input.addEventListener('input', () => this._onDraftChanged());
-      this.$input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._sendNow(); }
-      });
-
-      const attachBtn = this.$actions.querySelector('#cb-attach');
-      attachBtn.addEventListener('click', () => this.$fileInput.click());
-      this.$fileInput.addEventListener('change', (e) => this._onFilesSelected(e));
-
-      // Send dropdown
-      this.$actions.querySelector('#cb-dd').addEventListener('click', () => this.$menu.classList.toggle('open'));
-      document.addEventListener('click', (e) => {
-        if (!this.$actions.contains(e.target)) this.$menu.classList.remove('open');
-      });
-      this.$actions.querySelector('#cb-send').addEventListener('click', () => this._sendNow());
-      this.$menu.querySelector('#cb-now').addEventListener('click', () => { this.$menu.classList.remove('open'); this._sendNow(); });
-      this.$menu.querySelector('#cb-sched').addEventListener('click', () => { this.$menu.classList.remove('open'); this._openSchedulePicker(); });
-
-      // Resize scroll to bottom when new content size changes (only if near bottom)
-      const ro = new ResizeObserver(() => {
-        const el = this.$thread; if (!el) return;
-        const dist = el.scrollHeight - el.clientHeight - el.scrollTop;
-        if (dist < 120) this._scrollThreadToEnd();
-      });
-      ro.observe(this.$thread);
-
-      // Mutation observer: when new message nodes are added, scroll to bottom (only if near bottom)
-      const mo = new MutationObserver((mutations) => {
-        const el = this.$thread; if (!el) return;
-        for (const m of mutations) {
-          if (m.type === 'childList' && m.addedNodes && m.addedNodes.length) {
-            const dist = el.scrollHeight - el.clientHeight - el.scrollTop;
-            if (dist < 120) this._scrollThreadToEnd();
-            break;
-          }
-        }
-      });
-      mo.observe(this.$thread, { childList: true });
+      // React to OS theme changes when in auto mode
+      const mqlTheme = window.matchMedia('(prefers-color-scheme: dark)');
+      const onMqlChange = () => { if (this.state.theme === 'auto') this._applyTheme(); };
+      if (mqlTheme.addEventListener) mqlTheme.addEventListener('change', onMqlChange);
+      else if (mqlTheme.addListener) mqlTheme.addListener(onMqlChange);
     }
 
     async _start(){
@@ -901,12 +876,14 @@
     _iconX(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M18 6 6 18M6 6l12 12"/>'); }
     _iconPlus(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M12 5v14M5 12h14"/>'); }
     _iconSun(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.364 6.364-1.414-1.414M6.05 6.05 4.636 4.636m12.728 0-1.414 1.414M6.05 17.95l-1.414 1.414"/>'); }
+    _iconMoon(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79"/>'); }
     _iconPaperclip(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21.44 11.05 12.37 20.12a6 6 0 1 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66L9.88 17.15a2 2 0 0 1-2.83-2.83l8.13-8.12"/>'); }
     _iconChevronUp(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="m18 15-6-6-6 6"/>'); }
     _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 21v-4a2 2 0 0 1 2-2h4m5-9 3 3M7 17l9-9 3 3-9 9H7z"/>'); }
     _iconUsers(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
     _iconExpand(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/>'); }
     _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>'); }
+    _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>'); }
   }
 
   // ---------- Auto-init from data-chatbot-settings ----------
