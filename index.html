@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chatbot Widget Demo</title>
+  <link rel="stylesheet" href="./src/chatbot.css" />
+</head>
+<body>
+  <h1 style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 16px;">Chatbot Widget Demo</h1>
+  <p style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 0 16px 24px; max-width: 720px;">
+    This page demonstrates a backend-agnostic, vanilla JavaScript chatbot widget that floats in the bottom-right corner. Toggle demoMode in the settings below to switch between a fake backend and your real endpoints.
+  </p>
+
+  <div id="chatbot-anchor"
+       data-chatbot-settings='{
+         "pollForMessages": 10000,
+         "canStartMultipleConversations": true,
+         "channels": {
+           "sms": true,
+           "whatsapp": { "enabledUntil": "2025-09-24T12:34:54Z" },
+           "email": true
+         },
+         "fileUpload": {
+           "maxFilesPerMessage": 10,
+           "maxFileSizeSingleFile": 10000000,
+           "limitFileTypes": ["png","jpg","pdf","xls","gif","jpeg"]
+         },
+         "urls": {
+           "listMessages": "/api/messages?since={timestamp}",
+           "sendMessage": "/api/messages/send",
+           "editMessage": "/api/messages/{id}/edit",
+           "uploadFile": "/api/files/upload"
+         },
+         "demoMode": true
+       }'>
+  </div>
+
+  <script src="./src/chatbot.js"></script>
+</body>
+</html>
+
