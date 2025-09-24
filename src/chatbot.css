@@ -16,6 +16,11 @@
   --cb-surface: #f8fafc; /* slate-50 */
 
   --cb-radius: 14px;
+
+  /* New: layout sizing variables */
+  --cb-gap: 20px;
+  --cb-launcher-size: 60px; /* controls launcher width & height */
+  --cb-launcher-icon-size: 22px; /* controls launcher SVG size */
 }
 
 .cb-dark {
@@ -32,11 +37,11 @@
 /* Floating launcher button */
 .cb-launcher {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: var(--cb-gap);
+  bottom: var(--cb-gap);
   z-index: var(--cb-z);
-  width: 60px;
-  height: 60px;
+  width: var(--cb-launcher-size);
+  height: var(--cb-launcher-size);
   border-radius: 9999px;
   background: var(--cb-primary);
   color: white;
@@ -58,13 +63,19 @@
   background: var(--cb-danger);
 }
 
+/* Ensure the launcher icon uses CSS variables for size */
+.cb-launcher svg {
+  width: var(--cb-launcher-icon-size) !important;
+  height: var(--cb-launcher-icon-size) !important;
+}
+
 /* Chat window */
 .cb-window {
   position: fixed;
-  right: 20px;
-  bottom: 90px;
-  width: 360px;
-  max-height: min(70vh, 680px);
+  right: var(--cb-gap);
+  bottom: calc(var(--cb-gap) + var(--cb-launcher-size) + 10px);
+  width: 20vw; /* 20% of screen width */
+  height: calc((100vh - var(--cb-launcher-size)) * 0.9); /* 90% of (screen height - launcher) */
   background: var(--cb-bg);
   color: var(--cb-text);
   border: 1px solid var(--cb-border);
@@ -74,6 +85,7 @@
   flex-direction: column;
   z-index: var(--cb-z);
 }
+.cb-window.cb-open { display: flex; }
 .cb-window>:first-child {
     border-top-left-radius: var(--cb-radius);
     border-top-right-radius: var(--cb-radius);
@@ -82,7 +94,15 @@
     border-bottom-left-radius: var(--cb-radius);
     border-bottom-right-radius: var(--cb-radius);
 }
-.cb-window.cb-open { display: flex; }
+
+/* Fullscreen (within page) mode */
+.cb-window.cb-full {
+  left: var(--cb-gap);
+  right: var(--cb-gap);
+  bottom: calc(var(--cb-gap) + var(--cb-launcher-size) + 10px);
+  width: calc(100vw - var(--cb-gap) * 2);
+  height: calc(100vh - var(--cb-launcher-size) - var(--cb-gap) * 2); /* max height minus launcher and gap */
+}
 
 /* Responsive mobile: full-width bottom sheet */
 @media (max-width: 640px) {
@@ -108,7 +128,7 @@
 .cb-icon-btn:hover { background: rgba(148,163,184,0.15); }
 
 /* Body layout: sidebar (conversations) + messages */
-.cb-body { display: grid; grid-template-columns: 130px 1fr; min-height: 280px; }
+.cb-body { display: grid; grid-template-columns: 130px 1fr; min-height: 280px; flex-grow: 1; }
 @media (max-width: 640px) { .cb-body { grid-template-columns: 1fr; } .cb-sidebar { display: none; } }
 
 .cb-sidebar { border-right: 1px solid var(--cb-border); background: var(--cb-bg); overflow-y: auto; }

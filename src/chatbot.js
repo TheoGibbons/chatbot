@@ -318,6 +318,7 @@
         h('button', { class: 'cb-icon-btn', title: 'Participants', id: 'cb-users' }, this._iconUsers()),
         h('button', { class: 'cb-icon-btn', title: 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none') }, this._iconPlus()),
         h('button', { class: 'cb-icon-btn', title: 'Theme', id: 'cb-theme' }, this._iconSun()),
+        h('button', { class: 'cb-icon-btn', title: 'Fullscreen', id: 'cb-full' }, this._iconExpand()),
         h('button', { class: 'cb-icon-btn', title: 'Close', id: 'cb-close' }, this._iconX())
       ]);
 
@@ -397,6 +398,7 @@
       });
       this.$header.querySelector('#cb-new').addEventListener('click', () => this._promptNewConversation());
       this.$header.querySelector('#cb-users').addEventListener('click', () => this._openParticipants());
+      this.$header.querySelector('#cb-full').addEventListener('click', () => this._toggleFullscreen());
 
       // Composer events
       this.$input.addEventListener('input', () => this._onDraftChanged());
@@ -877,6 +879,14 @@
     open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); this._scrollThreadToEnd(); }
     close(){ this.state.open = false; this.$win.classList.remove('cb-open'); }
     toggle(){ this.state.open ? this.close() : this.open(); }
+    _toggleFullscreen(){
+      const btn = this.$header.querySelector('#cb-full');
+      const isFull = this.$win.classList.toggle('cb-full');
+      // swap icon and title
+      btn.innerHTML = '';
+      btn.appendChild(isFull ? this._iconCompress() : this._iconExpand());
+      btn.title = isFull ? 'Exit fullscreen' : 'Fullscreen';
+    }
     async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true);} return r.conversation; }
     async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants.includes(userId)) c.participants.push(userId);} }
     async sendMessage(conversationId, messageDraft){ this.state.activeId = conversationId; await this._sendMessage({ text: messageDraft.text || '', scheduleAt: messageDraft.scheduleAt || null }); }
@@ -895,6 +905,8 @@
     _iconChevronUp(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="m18 15-6-6-6 6"/>'); }
     _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 21v-4a2 2 0 0 1 2-2h4m5-9 3 3M7 17l9-9 3 3-9 9H7z"/>'); }
     _iconUsers(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
+    _iconExpand(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/>'); }
+    _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>'); }
   }
 
   // ---------- Auto-init from data-chatbot-settings ----------
