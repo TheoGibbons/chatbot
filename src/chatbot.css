@@ -183,4 +183,9 @@
 
 /* Tooltip */
 .cb-tooltip { position: relative; }
-.cb-tooltip[data-tip]:not([data-tip=""]):hover::after { content: attr(data-tip); position: absolute; bottom: 100%; right: 0; transform: translateY(-6px); background: #111827; color: #fff; padding: 6px 8px; border-radius: 6px; font: 12px/1 var(--cb-font); white-space: nowrap; }
+.cb-tooltip[data-tip]:not([data-tip=""]):hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 100%; right: 0; transform: translateY(-6px);
+  background: #111827; color: #fff; padding: 6px 8px; border-radius: 6px;
+  font: 12px/1 var(--cb-font); white-space: nowrap;
+}

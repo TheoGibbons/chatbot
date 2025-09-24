@@ -300,7 +300,7 @@
     // ------ UI ------
     _buildUI(){
       // Launcher button
-      this.$launcher = h('div', { class: 'cb-launcher', title: 'Open chat' }, [
+      this.$launcher = h('div', { class: 'cb-launcher cb-tooltip', 'data-tip': 'Open chat', role: 'button', tabindex: '0', 'aria-label': 'Open chat' }, [
         this._iconChat(),
         h('span', { class: 'cb-badge-dot', style: 'display:none' })
       ]);
@@ -315,11 +315,11 @@
           h('div', { class: 'cb-subtitle', id: 'cb-subtitle' }, 'We reply in minutes')
         ]),
         h('div', { class: 'cb-spacer' }),
-        h('button', { class: 'cb-icon-btn', title: 'Participants', id: 'cb-users' }, this._iconUsers()),
-        h('button', { class: 'cb-icon-btn', title: 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none') }, this._iconPlus()),
-        h('button', { class: 'cb-icon-btn', title: 'Theme', id: 'cb-theme' }, this._iconSun()),
-        h('button', { class: 'cb-icon-btn', title: 'Fullscreen', id: 'cb-full' }, this._iconExpand()),
-        h('button', { class: 'cb-icon-btn', title: 'Close', id: 'cb-close' }, this._iconX())
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users' }, this._iconUsers()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'New conversation', 'aria-label': 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none') }, this._iconPlus()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Theme', 'aria-label': 'Theme', id: 'cb-theme' }, this._iconSun()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Fullscreen', 'aria-label': 'Fullscreen', id: 'cb-full' }, this._iconExpand()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Close', 'aria-label': 'Close', id: 'cb-close' }, this._iconX())
       ]);
 
       // Body
@@ -354,11 +354,11 @@
       const actions = this.$actions = h('div', { class: 'cb-actions' });
 
       // File input button
-      const fileBtn = h('button', { class: 'cb-icon-btn', title: 'Attach files', id: 'cb-attach' }, this._iconPaperclip());
+      const fileBtn = h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Attach files', 'aria-label': 'Attach files', id: 'cb-attach' }, this._iconPaperclip());
       const fileInput = this.$fileInput = h('input', { type: 'file', multiple: '', style: 'display:none' });
 
       // Send with dropdown
-      const sendNowBtn = h('button', { class: 'cb-send-btn', id: 'cb-send' }, 'Send');
+      const sendNowBtn = h('button', { class: 'cb-send-btn cb-tooltip', 'aria-label': 'Send', id: 'cb-send' }, 'Send');
       const ddWrap = h('div', { class: 'cb-dropdown' });
       const ddBtn = h('button', { class: 'cb-icon-btn', id: 'cb-dd' }, this._iconChevronUp());
       const menu = this.$menu = h('div', { class: 'cb-menu' }, [
@@ -395,12 +395,15 @@
         if (this.state.theme === 'auto') btn.appendChild(this._iconMonitor());
         else if (this.state.theme === 'dark') btn.appendChild(this._iconMoon());
         else btn.appendChild(this._iconSun());
-        btn.title = `Theme: ${this.state.theme}`;
+        btn.setAttribute('data-tip', `Theme: ${this.state.theme}`);
+        btn.setAttribute('aria-label', `Theme: ${this.state.theme}`);
+        btn.classList.add('cb-tooltip');
       }
     }
 
     _wireEvents(){
       this.$launcher.addEventListener('click', () => this.toggle());
+      this.$launcher.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); } });
       this.$header.querySelector('#cb-close').addEventListener('click', () => this.close());
       this.$header.querySelector('#cb-theme').addEventListener('click', () => {
         this.setTheme(this.state.theme === 'light' ? 'dark' : this.state.theme === 'dark' ? 'auto' : 'light');
@@ -555,7 +558,7 @@
         const meta = h('div', { class: 'cb-msg-meta' }, [
           h('span', {}, fmtTime(m.createdAt)),
           (m.seenBy?.length? h('span', { class: 'cb-tooltip', 'data-tip': m.seenBy.map(s => `${s.userId} at ${fmtTime(s.at)}`).join('\n') }, 'Seen by '+m.seenBy.map(s => s.userId).join(', ')) : ''),
-          (isMe ? h('button', { class: 'cb-icon-btn', title: 'Edit', onclick: () => this._inlineEditMessage(m) }, this._iconEdit()) : '')
+          (isMe ? h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', onclick: () => this._inlineEditMessage(m) }, this._iconEdit()) : '')
         ]);
         bubble.appendChild(meta);
         wrap.appendChild(bubble);
@@ -635,7 +638,7 @@
         chip.appendChild(this._iconPaperclip(12));
         chip.appendChild(h('span', {}, `${a.name} (${bytes(a.size||0)})`));
         if (prog!=null) chip.appendChild(h('span', { style: 'color:var(--cb-warning)' }, ` ${Math.round(prog*100)}%`));
-        const rm = h('button', { class: 'cb-icon-btn', title: 'Remove', onclick: () => this._removeDraftAttachment(a.id) }, this._iconX(12));
+        const rm = h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Remove', 'aria-label': 'Remove attachment', onclick: () => this._removeDraftAttachment(a.id) }, this._iconX(12));
         chip.appendChild(rm);
         this.$composer.insertBefore(chip, this.$actions);
       }
@@ -711,7 +714,10 @@
       const uploading = this.state.uploading.size > 0;
       const btn = this.$actions.querySelector('#cb-send');
       btn.disabled = uploading;
-      btn.title = uploading ? 'Please wait: files are uploading' : '';
+      const tip = uploading ? 'Please wait: files are uploading' : 'Send';
+      btn.setAttribute('data-tip', tip);
+      btn.setAttribute('aria-label', tip);
+      btn.classList.add('cb-tooltip');
     }
 
     // ------ Send & schedule ------
@@ -857,10 +863,12 @@
     _toggleFullscreen(){
       const btn = this.$header.querySelector('#cb-full');
       const isFull = this.$win.classList.toggle('cb-full');
-      // swap icon and title
+      // swap icon and tip
       btn.innerHTML = '';
       btn.appendChild(isFull ? this._iconCompress() : this._iconExpand());
-      btn.title = isFull ? 'Exit fullscreen' : 'Fullscreen';
+      btn.setAttribute('data-tip', isFull ? 'Exit fullscreen' : 'Fullscreen');
+      btn.setAttribute('aria-label', isFull ? 'Exit fullscreen' : 'Fullscreen');
+      btn.classList.add('cb-tooltip');
     }
     async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true);} return r.conversation; }
     async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants.includes(userId)) c.participants.push(userId);} }
