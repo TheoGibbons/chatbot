@@ -323,10 +323,7 @@
 
       // Composer
       const composer = this.$composer = h('div', { class: 'cb-composer' });
-      const input = this.$input = h('div', { class: 'cb-input', id: 'cb-input', contenteditable: 'true', 'data-placeholder': 'Write a message…' });
-      const actions = this.$actions = h('div', { class: 'cb-actions' });
-
-      // Channel checkboxes
+      // Channel checkboxes (now above the input)
       const checkboxes = this.$checkboxes = h('div', { class: 'cb-checkboxes' });
       const makeChk = (id, label, enabled=true, disabled=false, tip='') => {
         const wrap = h('label', { class: 'cb-tooltip', 'data-tip': tip });
@@ -341,6 +338,9 @@
       if (this.settings.channels?.sms) checkboxes.appendChild(makeChk('cb-ch-sms','SMS', true, false));
       if (this.settings.channels?.whatsapp) checkboxes.appendChild(makeChk('cb-ch-wa','WhatsApp', waOk, !waOk, waTip));
       if (this.settings.channels?.email) checkboxes.appendChild(makeChk('cb-ch-email','Email', false, false));
+
+      const input = this.$input = h('div', { class: 'cb-input', id: 'cb-input', contenteditable: 'true', 'data-placeholder': 'Write a message…' });
+      const actions = this.$actions = h('div', { class: 'cb-actions' });
 
       // File input button
       const fileBtn = h('button', { class: 'cb-icon-btn', title: 'Attach files', id: 'cb-attach' }, this._iconPaperclip());
@@ -358,11 +358,11 @@
 
       const send = h('div', { class: 'cb-send' }, [ sendNowBtn, ddWrap ]);
 
-      actions.appendChild(checkboxes);
+      // Build composer: checkboxes (top) -> input -> actions (attach + send)
+      composer.appendChild(checkboxes);
       actions.appendChild(fileBtn);
       actions.appendChild(fileInput);
       actions.appendChild(send);
-
       composer.appendChild(input);
       composer.appendChild(actions);
 
