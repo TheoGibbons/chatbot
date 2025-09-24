@@ -21,7 +21,9 @@
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
   const h = (tag, attrs = {}, children = []) => {
-    const el = document.createElement(tag);
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const isSvg = String(tag).toLowerCase() === 'svg';
+    const el = isSvg ? document.createElementNS(SVG_NS, tag) : document.createElement(tag);
     for (const [k, v] of Object.entries(attrs || {})) {
       if (k === 'class') el.className = v;
       else if (k === 'style') el.setAttribute('style', v);
@@ -31,8 +33,16 @@
     if (!Array.isArray(children)) children = [children];
     for (const c of children) {
       if (c == null) continue;
-      if (c instanceof Node) el.appendChild(c);
-      else el.insertAdjacentHTML('beforeend', typeof c === 'string' ? c : String(c));
+      if (c instanceof Node) { el.appendChild(c); continue; }
+      if (isSvg && typeof c === 'string') {
+        // Parse as SVG to ensure correct namespace for children
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<svg xmlns="${SVG_NS}">${c}</svg>`, 'image/svg+xml');
+        const nodes = Array.from(doc.documentElement.childNodes);
+        for (const n of nodes) { if (n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim() === '')) el.appendChild(n); }
+        continue;
+      }
+      el.insertAdjacentHTML('beforeend', typeof c === 'string' ? c : String(c));
     }
     return el;
   };
