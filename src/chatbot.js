@@ -300,7 +300,7 @@
     // ------ UI ------
     _buildUI(){
       // Launcher button
-      this.$launcher = h('div', { class: 'cb-launcher cb-tooltip', 'data-tip': 'Open chat', role: 'button', tabindex: '0', 'aria-label': 'Open chat' }, [
+      this.$launcher = h('div', { class: 'cb-launcher', role: 'button', tabindex: '0', 'aria-label': 'Open chat' }, [
         this._iconChat(),
         h('span', { class: 'cb-badge-dot', style: 'display:none' })
       ]);

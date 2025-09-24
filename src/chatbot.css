@@ -127,6 +127,13 @@
 .cb-icon-btn { background: transparent; border: 0; color: var(--cb-text); cursor: pointer; padding: 6px; border-radius: 8px; }
 .cb-icon-btn:hover { background: rgba(148,163,184,0.15); }
 
+/* Header-specific tooltip positioning: show below controls */
+.cb-header .cb-tooltip[data-tip]:not([data-tip=""]):hover::after {
+  top: 100%;
+  bottom: auto;
+  transform: translateY(6px);
+}
+
 /* Body layout: sidebar (conversations) + messages */
 .cb-body { display: grid; grid-template-columns: 130px 1fr; min-height: 280px; flex-grow: 1; }
 @media (max-width: 640px) { .cb-body { grid-template-columns: 1fr; } .cb-sidebar { display: none; } }
