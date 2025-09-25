@@ -412,6 +412,42 @@
       this.$header.querySelector('#cb-users').addEventListener('click', () => this._openParticipants());
       this.$header.querySelector('#cb-full').addEventListener('click', () => this._toggleFullscreen());
 
+      // Composer: send button
+      const sendBtn = this.$actions.querySelector('#cb-send');
+      if (sendBtn) sendBtn.addEventListener('click', () => this._sendNow());
+
+      // Composer: dropdown toggle and menu actions
+      const ddBtn = this.$actions.querySelector('#cb-dd');
+      if (ddBtn && this.$menu){
+        ddBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.$menu.classList.toggle('open');
+        });
+        const nowItem = this.$menu.querySelector('#cb-now');
+        const schedItem = this.$menu.querySelector('#cb-sched');
+        if (nowItem) nowItem.addEventListener('click', () => { this.$menu.classList.remove('open'); this._sendNow(); });
+        if (schedItem) schedItem.addEventListener('click', () => { this.$menu.classList.remove('open'); this._openSchedulePicker(); });
+        document.addEventListener('click', () => { this.$menu.classList.remove('open'); });
+      }
+
+      // Composer: input change (draft autosave) and Ctrl/Cmd+Enter to send
+      if (this.$input){
+        this.$input.addEventListener('input', () => this._onDraftChanged());
+        this.$input.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this._sendNow(); }
+        });
+      }
+
+      // Composer: file attach
+      const attachBtn = this.$actions.querySelector('#cb-attach');
+      if (attachBtn && this.$fileInput){
+        attachBtn.addEventListener('click', () => this.$fileInput.click());
+        this.$fileInput.addEventListener('change', (e) => this._onFilesSelected(e));
+      }
+
+      // Initialize send button state/tooltip
+      this._updateSendDisabled();
+
       // React to OS theme changes when in auto mode
       const mqlTheme = window.matchMedia('(prefers-color-scheme: dark)');
       const onMqlChange = () => { if (this.state.theme === 'auto') this._applyTheme(); };
