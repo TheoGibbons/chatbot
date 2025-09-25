@@ -17,7 +17,7 @@ A backend-agnostic, drop-in JavaScript chatbot widget that floats on the bottom-
 
 1) Clone and open the demo page
 
-- Just open `index.html` in your browser. Demo mode is enabled by default so no server is required.
+- Just open `index.html` in your browser. Demo mode is enabled by default so no server is required. If your browser blocks ES module imports from the `file://` scheme, run a tiny local server (see "Developing locally").
 
 2) Try it
 
@@ -54,7 +54,7 @@ To embed in any site, copy the `<link>`, `<script>`, and the settings `<div>` fr
     "demoMode": true
   }'
 ></div>
-<script src="/path/to/src/chatbot.js"></script>
+<script type="module" src="/path/to/src/chatbot.js"></script>
 ```
 
 - Place the `<div>` anywhere in your HTML. The widget self-initializes on DOM load.
@@ -179,7 +179,7 @@ Examples:
 
 ## Developing locally
 
-- Demo works by opening `index.html` directly in a browser (no server needed).
+- Demo works by opening `index.html` directly in a browser (no server needed). If your browser forbids module imports from file URLs, run a local static server.
 - If you want a local static server, any will do. Examples:
 
 Windows cmd (Python installed):
@@ -200,4 +200,3 @@ Then open http://localhost:8080/ in your browser.
 ## License
 
 MIT (or choose your preferred license).
-
