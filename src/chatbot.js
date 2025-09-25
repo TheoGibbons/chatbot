@@ -315,11 +315,11 @@
           h('div', { class: 'cb-subtitle', id: 'cb-subtitle' }, 'We reply in minutes')
         ]),
         h('div', { class: 'cb-spacer' }),
-        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users' }, this._iconUsers()),
-        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'New conversation', 'aria-label': 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none') }, this._iconPlus()),
-        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Theme', 'aria-label': 'Theme', id: 'cb-theme' }, this._iconSun()),
-        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Fullscreen', 'aria-label': 'Fullscreen', id: 'cb-full' }, this._iconExpand()),
-        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Close', 'aria-label': 'Close', id: 'cb-close' }, this._iconX())
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users', type: 'button' }, this._iconUsers()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'New conversation', 'aria-label': 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none'), type: 'button' }, this._iconPlus()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Theme', 'aria-label': 'Theme', id: 'cb-theme', type: 'button' }, this._iconSun()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Fullscreen', 'aria-label': 'Fullscreen', id: 'cb-full', type: 'button' }, this._iconExpand()),
+        h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Close', 'aria-label': 'Close', id: 'cb-close', type: 'button' }, this._iconX())
       ]);
 
       // Body
@@ -354,16 +354,16 @@
       const actions = this.$actions = h('div', { class: 'cb-actions' });
 
       // File input button
-      const fileBtn = h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Attach files', 'aria-label': 'Attach files', id: 'cb-attach' }, this._iconPaperclip());
+      const fileBtn = h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Attach files', 'aria-label': 'Attach files', id: 'cb-attach', type: 'button' }, this._iconPaperclip());
       const fileInput = this.$fileInput = h('input', { type: 'file', multiple: '', style: 'display:none' });
 
       // Send with dropdown
-      const sendNowBtn = h('button', { class: 'cb-send-btn cb-tooltip', 'aria-label': 'Send', id: 'cb-send' }, 'Send');
+      const sendNowBtn = h('button', { class: 'cb-send-btn cb-tooltip', 'aria-label': 'Send', id: 'cb-send', type: 'button' }, 'Send');
       const ddWrap = h('div', { class: 'cb-dropdown' });
-      const ddBtn = h('button', { class: 'cb-icon-btn', id: 'cb-dd' }, this._iconChevronUp());
+      const ddBtn = h('button', { class: 'cb-icon-btn', id: 'cb-dd', type: 'button' }, this._iconChevronUp());
       const menu = this.$menu = h('div', { class: 'cb-menu' }, [
-        h('button', { id: 'cb-now' }, 'Send now'),
-        h('button', { id: 'cb-sched' }, 'Schedule…')
+        h('button', { id: 'cb-now', type: 'button' }, 'Send now'),
+        h('button', { id: 'cb-sched', type: 'button' }, 'Schedule…')
       ]);
       ddWrap.appendChild(ddBtn); ddWrap.appendChild(menu);
 
@@ -406,7 +406,11 @@
       this.$launcher.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); } });
       this.$header.querySelector('#cb-close').addEventListener('click', () => this.close());
       this.$header.querySelector('#cb-theme').addEventListener('click', () => {
-        this.setTheme(this.state.theme === 'auto' ? 'dark' : this.state.theme === 'dark' ? 'light' : 'auto');
+        // Cycle theme in explicit order: auto -> dark -> light -> auto
+        const order = ['auto','dark','light'];
+        const idx = order.indexOf(this.state.theme);
+        const next = order[(idx + 1) % order.length];
+        this.setTheme(next);
       });
       this.$header.querySelector('#cb-new').addEventListener('click', () => this._promptNewConversation());
       this.$header.querySelector('#cb-users').addEventListener('click', () => this._openParticipants());
@@ -460,6 +464,8 @@
       this._renderConversations();
       this._selectFirstConversation();
       this._updateUnreadBadge();
+      // Ensure send button enabled state reflects whether a conversation is active
+      this._updateSendDisabled();
       this._startPolling();
     }
 
@@ -538,7 +544,7 @@
         const meta = lastMsg ? (escapeHtml(lastMsg.text).slice(0, 28) + (lastMsg.text.length>28?'…':'')) : 'No messages';
         el.appendChild(h('div', { class: 'cb-convo-name' }, escapeHtml(c.name)));
         el.appendChild(h('div', { class: 'cb-convo-meta' }, meta));
-        el.addEventListener('click', () => { this.state.activeId = c.id; this._renderConversations(); this._renderThread(true); this._loadDraft(); this._updateUnreadBadge(); this._renderPresence(); });
+        el.addEventListener('click', () => { this.state.activeId = c.id; this._renderConversations(); this._renderThread(true); this._loadDraft(); this._updateUnreadBadge(); this._renderPresence(); this._updateSendDisabled(); });
         this.$sidebar.appendChild(el);
       }
       // Show sidebar (conversation picker) only if user belongs to multiple conversations
@@ -550,6 +556,7 @@
         this.state.activeId = this.state.conversations[0].id;
         this._renderThread(true);
         this._loadDraft();
+        this._updateSendDisabled();
       }
     }
 
@@ -594,7 +601,7 @@
         const meta = h('div', { class: 'cb-msg-meta' }, [
           h('span', {}, fmtTime(m.createdAt)),
           (m.seenBy?.length? h('span', { class: 'cb-tooltip', 'data-tip': m.seenBy.map(s => `${s.userId} at ${fmtTime(s.at)}`).join('\n') }, 'Seen by '+m.seenBy.map(s => s.userId).join(', ')) : ''),
-          (isMe ? h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', onclick: () => this._inlineEditMessage(m) }, this._iconEdit()) : '')
+          (isMe ? h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', onclick: () => this._inlineEditMessage(m), type: 'button' }, this._iconEdit()) : '')
         ]);
         bubble.appendChild(meta);
         wrap.appendChild(bubble);
@@ -603,8 +610,8 @@
       if (scrollToEnd) this._scrollThreadToEnd();
     }
     _scrollThreadToEnd(){
-      const el = this.$thread; if (!el) return;
-      // Use rAF twice to ensure DOM layout is flushed before scrolling
+      // Scroll the messages container (which is the scrolling element)
+      const el = this.$messages || this.$thread; if (!el) return;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           el.scrollTop = el.scrollHeight;
@@ -748,9 +755,10 @@
 
     _updateSendDisabled(){
       const uploading = this.state.uploading.size > 0;
+      const notReady = !this.state.activeId;
       const btn = this.$actions.querySelector('#cb-send');
-      btn.disabled = uploading;
-      const tip = uploading ? 'Please wait: files are uploading' : 'Send';
+      btn.disabled = uploading || notReady;
+      const tip = uploading ? 'Please wait: files are uploading' : (notReady ? 'Select a conversation to start messaging' : 'Send');
       btn.setAttribute('data-tip', tip);
       btn.setAttribute('aria-label', tip);
       btn.classList.add('cb-tooltip');
@@ -771,7 +779,7 @@
     }
 
     async _sendNow(){
-      const cid = this.state.activeId; if (!cid) return;
+      const cid = this.state.activeId; if (!cid) { alert('No conversation selected yet.'); return; }
       if (this.state.uploading.size > 0){ alert('Please wait until files finish uploading.'); return; }
       const text = (this.$input.textContent || '').trim();
       const draft = this.state.drafts.get(cid) || { attachments: [] };
@@ -906,9 +914,9 @@
       btn.setAttribute('aria-label', isFull ? 'Exit fullscreen' : 'Fullscreen');
       btn.classList.add('cb-tooltip');
     }
-    async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true);} return r.conversation; }
+    async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true); this._updateSendDisabled();} return r.conversation; }
     async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants.includes(userId)) c.participants.push(userId);} }
-    async sendMessage(conversationId, messageDraft){ this.state.activeId = conversationId; await this._sendMessage({ text: messageDraft.text || '', scheduleAt: messageDraft.scheduleAt || null }); }
+    async sendMessage(conversationId, messageDraft){ this.state.activeId = conversationId; this._updateSendDisabled(); await this._sendMessage({ text: messageDraft.text || '', scheduleAt: messageDraft.scheduleAt || null }); }
     async editMessage(messageId, newText){ await this.api.editMessage(messageId, newText); }
     async markAsRead(conversationId, messageIds){ await this.api.markAsRead(conversationId, messageIds); }
     getUnreadCount(){ return this.state.unread; }
