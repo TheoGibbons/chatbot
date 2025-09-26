@@ -183,6 +183,7 @@
 .cb-menu.open { display: block; }
 .cb-dropdown .cb-menu button { width: 100%; text-align: left; background: transparent; border: 0; padding: 8px 10px; cursor: pointer; font: 13px/1 var(--cb-font); }
 .cb-dropdown .cb-menu button:hover { background: rgba(148,163,184,0.12); }
+#cb-schedule-time-ago-string { margin-left: 6px; color: grey; font-size: smaller; }
 
 /* Chips */
 .cb-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(148,163,184,0.16); color: var(--cb-text); padding: 4px 8px; border-radius: 9999px; font: 12px/1 var(--cb-font); }

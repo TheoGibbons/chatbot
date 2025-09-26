@@ -1,4 +1,4 @@
-import { clamp, escapeHtml, h, fmtTime, bytes, nowIso, uid } from './utils.js';
+import { clamp, escapeHtml, h, fmtTime, bytes, nowIso, uid, prettySeconds } from './utils.js';
 import { Emitter } from './emitter.js';
 import { ApiClient } from './apiClient.js';
 
@@ -599,35 +599,88 @@ export class ChatbotWidget {
     const text = (this.$input.textContent || '').trim();
     const draft = this.state.drafts.get(cid) || { attachments: [] };
     if (!text && !(draft.attachments?.length)) return;
-    await this._sendMessage({ text, scheduleAt: null });
+    await this._sendMessage({ text, scheduleIn: null });
   }
   _openSchedulePicker(){
     const wrap = h('div', { class: 'cb-menu open', style: 'position: absolute; bottom: 50px; right: 10px; padding: 8px' });
     const input = h('input', { type: 'datetime-local', style: 'margin: 4px' });
     const ok = h('button', { class: 'cb-send-btn', style: 'margin: 4px' }, 'Schedule');
     const cancel = h('button', { class: 'cb-icon-btn', style: 'margin: 4px' }, 'Cancel');
-    wrap.appendChild(h('div', { style: 'padding:4px 6px; font: 13px var(--cb-font); color: var(--cb-text);' }, 'Choose date & time'));
+    const timeAgoString = h('span', { id: 'cb-schedule-time-ago-string' });
+    const getScheduleInFromInput = (input) => {
+      const v = input.value;
+      if (!v) {
+        return {
+          scheduleIn: null,
+          error: 'Please choose date & time',
+          prettyString: '',
+        };
+      }
+      const dt = new Date(v);
+      if (isNaN(dt)) {
+        return {
+          scheduleIn: null,
+          error: 'Invalid date & time',
+          prettyString: '',
+        }
+      }
+      const scheduleIn = Math.floor((new Date(v).getTime() - new Date().getTime()) / 1000);
+      if (scheduleIn < 60) {
+        return {
+          scheduleIn: null,
+          error: "Must > 1min from now",
+          prettyString: prettySeconds(scheduleIn, true),
+        }
+      }
+
+      return {
+        scheduleIn,
+        error: null,
+        prettyString: prettySeconds(scheduleIn, true),
+      }
+    }
+    wrap.appendChild(h('div', { style: 'padding:4px 6px; font: 13px var(--cb-font); color: var(--cb-text);' }, [
+        'Choose date & time',
+        timeAgoString,
+    ]));
     wrap.appendChild(input); wrap.appendChild(ok); wrap.appendChild(cancel);
     this.$composer.appendChild(wrap);
     const close = () => wrap.remove();
     cancel.addEventListener('click', close);
     ok.addEventListener('click', async () => {
-      const v = input.value; if (!v) return;
-      const dt = new Date(v);
-      if (isNaN(dt)) return;
-      await this._sendMessage({ text: (this.$input.textContent||'').trim(), scheduleAt: dt.toISOString() });
-      close();
+      const {scheduleIn, error, prettyString} = getScheduleInFromInput(input);
+      if (error) {
+        timeAgoString.innerText = error;
+        timeAgoString.style.color = '#F00';
+      } else {
+        timeAgoString.innerText = prettyString;
+        timeAgoString.style.color = '';
+        await this._sendMessage({text: (this.$input.textContent || '').trim(), scheduleIn: scheduleIn});
+        close();
+      }
+    });
+    input.addEventListener('input', () => {
+      const {scheduleIn, error, prettyString} = getScheduleInFromInput(input);
+      if (error) {
+        timeAgoString.innerText = error;
+        timeAgoString.style.color = '#F00';
+      } else {
+        timeAgoString.innerText = prettyString;
+        timeAgoString.style.color = '';
+      }
     });
     setTimeout(() => { const onDoc = (e) => { if (!wrap.contains(e.target)) { close(); document.removeEventListener('click', onDoc); } }; document.addEventListener('click', onDoc); }, 0);
+
   }
 
-  async _sendMessage({ text, scheduleAt }){
+
+  async _sendMessage({ text, scheduleIn }){
     const cid = this.state.activeId;
     const draft = this.state.drafts.get(cid) || { attachments: [] };
     const channels = this._gatherChannels();
     const attachments = draft.attachments || [];
     const optimisticId = 'temp_'+uid();
-    const createdAt = scheduleAt || nowIso();
+    const createdAt = scheduleIn || 0;
     const optimistic = { id: optimisticId, conversationId: cid, authorId: 'me', text, createdAt, updatedAt: createdAt, attachments, channels, seenBy: [] };
     const arr = this.state.messages.get(cid) || []; arr.push(optimistic); this.state.messages.set(cid, arr);
     this._renderThread(true);
@@ -638,7 +691,7 @@ export class ChatbotWidget {
     await this._saveDraft();
 
     try {
-      const res = await this.api.sendMessage({ conversationId: cid, text, attachments, channels, scheduleAt });
+      const res = await this.api.sendMessage({ conversationId: cid, text, attachments, channels, scheduleIn });
       if (res?.ok && res.message){
         const msgs = this.state.messages.get(cid) || [];
         const ix = msgs.findIndex(m => m.id === optimisticId);
@@ -725,7 +778,7 @@ export class ChatbotWidget {
   }
   async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true); this._updateSendDisabled();} return r.conversation; }
   async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants.includes(userId)) c.participants.push(userId);} }
-  async sendMessage(conversationId, messageDraft){ this.state.activeId = conversationId; this._updateSendDisabled(); await this._sendMessage({ text: messageDraft.text || '', scheduleAt: messageDraft.scheduleAt || null }); }
+  async sendMessage(conversationId, messageDraft){ this.state.activeId = conversationId; this._updateSendDisabled(); await this._sendMessage({ text: messageDraft.text || '', scheduleIn: messageDraft.scheduleIn || null }); }
   async editMessage(messageId, newText){ await this.api.editMessage(messageId, newText); }
   async markAsRead(conversationId, messageIds){ await this.api.markAsRead(conversationId, messageIds); }
   getUnreadCount(){ return this.state.unread; }

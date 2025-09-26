@@ -52,3 +52,76 @@ export const bytes = (n) => {
 };
 export const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Example usage:
+ * console.log(prettySeconds(86400));             // "1 day"
+ * console.log(prettySeconds(86400 * 2));         // "2 days"
+ * console.log(prettySeconds((86400 * 2) + 0.5 * 86400)); // "2 days 12 hrs"
+ * console.log(prettySeconds(60 * 59));           // "59 mins"
+ * console.log(prettySeconds(31536000 * 10 + 2628000)); // "10 years 1 month"
+ * console.log(prettySeconds(30.678));            // "30.68 secs"
+ * console.log(prettySeconds(0.678));             // "0.68 secs"
+ *
+ * console.log(prettySeconds(-86400));            // "-1 day"
+ * console.log(prettySeconds(-86400 * 2));        // "-2 days"
+ * console.log(prettySeconds(-((86400 * 2) + 0.5 * 86400))); // "-2 days -12 hrs"
+ * console.log(prettySeconds(-(60 * 59)));        // "-59 mins"
+ * console.log(prettySeconds(-(31536000 * 10 + 2628000))); // "-10 years -1 month"
+ * console.log(prettySeconds(-(30.678)));         // "-30.68 secs"
+ * console.log(prettySeconds(-(0.678)));          // "-0.68 secs"
+ *
+ * console.log(prettySeconds(86400, true));      // Output: "in 1 day"
+ * console.log(prettySeconds(-31536000 * 5, true)); // Output: "5 years ago"
+ * console.log(prettySeconds(60 * 45, true));    // Output: "in 45 mins"
+ *
+ * console.log(prettySeconds(''));    // Output: ""
+ * console.log(prettySeconds(null));    // Output: ""
+ * console.log(prettySeconds(undefined));    // Output: ""
+ *
+ * @param {number} inputSeconds eg 86400
+ * @param {boolean} addAgoString if true response will be "1 day ago" instead of "1 day"
+ * @returns {string} eg "1 day"
+ */
+export const prettySeconds = (inputSeconds, addAgoString = false) => {
+
+  if(inputSeconds === null || inputSeconds === undefined || inputSeconds === '') return '';
+
+  // Keep track of sign
+  const neg = inputSeconds < 0 ? -1 : 1;
+  inputSeconds = Math.abs(inputSeconds);
+
+  // Convert to integer and get time components
+  const roundedSeconds = Math.round(inputSeconds);
+  const years = Math.floor(roundedSeconds / 31536000);
+  const months = Math.floor((roundedSeconds % 31536000) / 2628000);
+  const weeks = Math.floor((roundedSeconds % 2628000) / 604800);
+  const days = Math.floor((roundedSeconds % 604800) / 86400);
+  const hours = Math.floor((roundedSeconds % 86400) / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const seconds = parseFloat((inputSeconds % 60).toFixed(2)); // Keep seconds as float for precision
+
+  let result = "";
+
+  if (years) {
+    result = `${years * neg} year${Math.abs(years) > 1 ? "s" : ""}${months ? ` ${months * neg} month${Math.abs(months) > 1 ? "s" : ""}` : ""}`;
+  } else if (months) {
+    result = `${months * neg} month${Math.abs(months) > 1 ? "s" : ""}${weeks ? ` ${weeks * neg} week${Math.abs(weeks) > 1 ? "s" : ""}` : ""}`;
+  } else if (weeks) {
+    result = `${weeks * neg} week${Math.abs(weeks) > 1 ? "s" : ""}${days ? ` ${days * neg} day${Math.abs(days) > 1 ? "s" : ""}` : ""}`;
+  } else if (days) {
+    result = `${days * neg} day${Math.abs(days) > 1 ? "s" : ""}${hours ? ` ${hours * neg} hr${Math.abs(hours) > 1 ? "s" : ""}` : ""}`;
+  } else if (hours) {
+    result = `${hours * neg} hr${Math.abs(hours) > 1 ? "s" : ""}${minutes ? ` ${minutes * neg} min${Math.abs(minutes) > 1 ? "s" : ""}` : ""}`;
+  } else if (minutes) {
+    result = `${minutes * neg} min${Math.abs(minutes) > 1 ? "s" : ""}${seconds ? ` ${seconds * neg} sec${Math.abs(seconds) > 1 ? "s" : ""}` : ""}`;
+  } else {
+    result = `${seconds * neg} sec${Math.abs(seconds) !== 1 ? "s" : ""}`;
+  }
+
+  // Add "in" / "ago" if requested
+  if (addAgoString) {
+    result = neg > 0 ? `in ${result}` : `${result} ago`;
+  }
+
+  return result;
+}
