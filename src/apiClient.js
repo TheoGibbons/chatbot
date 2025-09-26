@@ -68,5 +68,11 @@ export class ApiClient {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId, messageIds }), credentials: 'include' });
     return res.json();
   }
+  async searchUsers(query){
+    if (this.demo) return this.demo.searchUsers({ query });
+    const urlTmpl = this.settings.urls?.searchUsers || '/api/users/search?q={query}';
+    const url = urlTmpl.replace('{query}', encodeURIComponent(query || ''));
+    const res = await fetch(url, { credentials: 'include' });
+    return res.json();
+  }
 }
-

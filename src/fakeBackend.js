@@ -111,5 +111,14 @@ export class FakeBackend {
     this._touch();
     return { ok: true };
   }
+  async searchUsers({ query }){
+    const q = (query || '').toLowerCase();
+    const results = this.users
+      .filter(u => u.id !== 'me')
+      .filter(u => !q || u.id.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q))
+      .slice(0, 50)
+      .map(u => ({ userId: u.id, name: u.name, online: !!u.online }));
+    await sleep(150 + Math.random()*250);
+    return { ok: true, results };
+  }
 }
-

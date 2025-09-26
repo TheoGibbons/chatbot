@@ -141,8 +141,17 @@ export class ChatbotWidget {
       const next = order[(idx + 1) % order.length];
       this.setTheme(next);
     });
-    this.$header.querySelector('#cb-new').addEventListener('click', () => this._promptNewConversation());
-    this.$header.querySelector('#cb-users').addEventListener('click', () => this._openParticipants());
+    const newBtn = this.$header.querySelector('#cb-new');
+    if (newBtn) newBtn.addEventListener('click', () => this._openUserPicker({ mode: 'start' }));
+
+    const usersBtn = this.$header.querySelector('#cb-users');
+    if (usersBtn){
+      const show = () => this._showParticipantsPopover(usersBtn);
+      usersBtn.addEventListener('mouseenter', show);
+      usersBtn.addEventListener('click', (e) => { e.stopPropagation(); show(); });
+    }
+    document.addEventListener('click', () => this._hideParticipantsPopover());
+
     this.$header.querySelector('#cb-full').addEventListener('click', () => this._toggleFullscreen());
 
     const sendBtn = this.$actions.querySelector('#cb-send');
@@ -249,6 +258,125 @@ export class ChatbotWidget {
     }, interval);
   }
 
+  // Participants popover and user picker
+  _showParticipantsPopover(btn){
+    const cid = this.state.activeId; if (!cid) return;
+    this._hideParticipantsPopover();
+    const pop = this.$participantsPopover = h('div', { class: 'cb-popover' });
+    const c = this.state.conversations.find(x => x.id === cid);
+    pop.appendChild(h('h4', {}, 'Participants'));
+    const list = h('div', { class: 'cb-pop-list' });
+    const others = (c?.participants||[]).filter(u => u !== 'me');
+    if (!others.length) list.appendChild(h('div', { style: 'color:var(--cb-muted);font:12px var(--cb-font);' }, 'No other participants'));
+    for (const uid_ of others){
+      const name = uid_;
+      const row = h('div', { class: 'cb-pop-item' }, [
+        h('span', {}, escapeHtml(name)),
+        h('button', { class: 'cb-icon-btn', 'aria-label': 'Remove participant', onclick: (e) => { e.stopPropagation(); this.api.removeParticipant(cid, uid_).then(r => { if (r?.ok){ c.participants = c.participants.filter(x => x!==uid_); this._renderPresence(); this._hideParticipantsPopover(); this._showParticipantsPopover(btn); } }); } }, this._iconX(14))
+      ]);
+      list.appendChild(row);
+    }
+    pop.appendChild(list);
+    const actions = h('div', { class: 'cb-pop-actions' }, [
+      h('button', { class: 'cb-icon-btn', 'aria-label': 'Add participant', onclick: (e) => { e.stopPropagation(); this._hideParticipantsPopover(); this._openUserPicker({ mode: 'add' }); } }, this._iconPlus(16))
+    ]);
+    pop.appendChild(actions);
+
+    // Positioning near the users button
+    document.body.appendChild(pop);
+    const rect = btn.getBoundingClientRect();
+    pop.style.top = Math.round(window.scrollY + rect.bottom + 6) + 'px';
+    pop.style.left = Math.round(window.scrollX + rect.right - 260) + 'px';
+
+    // Keep open while hovering popover
+    pop.addEventListener('mouseenter', () => { clearTimeout(this._popHideTimer); });
+    pop.addEventListener('mouseleave', () => this._hideParticipantsPopover());
+  }
+  _hideParticipantsPopover(){
+    clearTimeout(this._popHideTimer);
+    if (this.$participantsPopover){ this.$participantsPopover.remove(); this.$participantsPopover = null; }
+  }
+
+  _openUserPicker({ mode }){
+    const isAdd = mode === 'add';
+    const title = isAdd ? 'Add participant' : 'Start a conversation';
+    const backdrop = h('div', { class: 'cb-modal-backdrop' });
+    const modal = h('div', { class: 'cb-modal' });
+    modal.appendChild(h('h3', {}, title));
+    const searchRow = h('div', { class: 'row' });
+    searchRow.appendChild(h('label', { style: 'font: 12px var(--cb-font); color: var(--cb-muted);' }, 'Search users'));
+    const input = h('input', { type: 'text', placeholder: 'Type to search…' });
+    searchRow.appendChild(input);
+    const selectRow = h('div', { class: 'row' });
+    const select = h('select', { size: '8' });
+    selectRow.appendChild(select);
+    const footer = h('div', { class: 'footer' });
+    const cancel = h('button', { class: 'cb-btn secondary' }, 'Cancel');
+    const addBtn = h('button', { class: 'cb-btn', disabled: '' }, isAdd ? 'Add' : 'Start');
+    footer.appendChild(cancel);
+    footer.appendChild(addBtn);
+    modal.appendChild(searchRow);
+    modal.appendChild(selectRow);
+    modal.appendChild(footer);
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    const close = () => backdrop.remove();
+    cancel.addEventListener('click', close);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+
+    const cid = this.state.activeId;
+    const existing = isAdd ? (this.state.conversations.find(x => x.id===cid)?.participants || []) : [];
+
+    const renderOptions = (items=[]) => {
+      select.innerHTML = '';
+      for (const u of items){
+        if (u.userId === 'me') continue;
+        if (isAdd && existing.includes(u.userId)) continue;
+        const label = `${u.name || u.userId} (${u.userId})${u.online? ' • online':''}`;
+        select.appendChild(h('option', { value: u.userId }, label));
+      }
+      addBtn.disabled = !select.value;
+    };
+
+    let searchTimer;
+    const doSearch = async (q) => {
+      const res = await this.api.searchUsers(q || '');
+      const results = res?.results || [];
+      renderOptions(results);
+    };
+    input.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => doSearch(input.value.trim()), 250); });
+    select.addEventListener('change', () => { addBtn.disabled = !select.value; });
+
+    // Initial load
+    doSearch('');
+
+    addBtn.addEventListener('click', async () => {
+      const userId = select.value; if (!userId) return;
+      addBtn.disabled = true;
+      try {
+        if (isAdd) {
+          await this.api.addParticipant(cid, userId);
+          const c = this.state.conversations.find(x => x.id===cid); if (c && !c.participants.includes(userId)) c.participants.push(userId);
+          this._renderPresence();
+        } else {
+          const r = await this.api.startConversation([userId]);
+          if (r?.ok){
+            this.state.conversations.push(r.conversation);
+            this.state.activeId = r.conversation.id;
+            this._renderConversations();
+            this._renderThread(true);
+            this._saveDraft();
+            this.emitter.emit('conversation', r.conversation);
+          }
+        }
+        close();
+      } finally {
+        addBtn.disabled = false;
+      }
+    });
+  }
+
   // Conversations
   _renderConversations(){
     this.$sidebar.innerHTML = '';
@@ -259,7 +387,7 @@ export class ChatbotWidget {
       const meta = lastMsg ? (escapeHtml(lastMsg.text).slice(0, 28) + (lastMsg.text.length>28?'…':'')) : 'No messages';
       el.appendChild(h('div', { class: 'cb-convo-name' }, escapeHtml(c.name)));
       el.appendChild(h('div', { class: 'cb-convo-meta' }, meta));
-      el.addEventListener('click', () => { this.state.activeId = c.id; this._renderConversations(); this._renderThread(true); this._loadDraft(); this._updateUnreadBadge(); this._renderPresence(); this._updateSendDisabled(); });
+      el.addEventListener('click', () => { this.state.activeId = c.id; this._renderConversations(); this._renderThread(true); this._loadDraft(); this._updateUnreadBadge(); this._renderPresence(); this._updateSendDisabled(); this._hideParticipantsPopover(); });
       this.$sidebar.appendChild(el);
     }
     const showSidebar = this.state.conversations.length > 1;
@@ -271,38 +399,6 @@ export class ChatbotWidget {
       this._renderThread(true);
       this._loadDraft();
       this._updateSendDisabled();
-    }
-  }
-
-  async _promptNewConversation(){
-    if (!this.settings.canStartMultipleConversations) return;
-    const input = prompt('Enter participant user IDs separated by commas (demo: u_alex, u_sam, u_jamie)');
-    if (!input) return;
-    const participants = input.split(',').map(s => s.trim()).filter(Boolean);
-    const res = await this.api.startConversation(participants);
-    if (res?.ok){
-      this.state.conversations.push(res.conversation);
-      this.state.activeId = res.conversation.id;
-      this._renderConversations();
-      this._renderThread(true);
-      this._saveDraft();
-      this.emitter.emit('conversation', res.conversation);
-    }
-  }
-
-  // Participants simple dialog to avoid missing method
-  _openParticipants(){
-    const cid = this.state.activeId; if (!cid) { alert('No conversation selected'); return; }
-    const c = this.state.conversations.find(x => x.id === cid); if (!c) return;
-    const current = (c.participants || []).join(', ');
-    const action = prompt(`Participants: ${current}\nType "+userId" to add or "-userId" to remove\n(e.g., +u_sam or -u_jamie)`);
-    if (!action) return;
-    if (action.startsWith('+')) {
-      const userId = action.slice(1).trim(); if (!userId) return;
-      this.api.addParticipant(cid, userId).then(r => { if (r?.ok){ if (!c.participants.includes(userId)) c.participants.push(userId); this._renderPresence(); }});
-    } else if (action.startsWith('-')) {
-      const userId = action.slice(1).trim(); if (!userId) return;
-      this.api.removeParticipant(cid, userId).then(r => { if (r?.ok){ c.participants = c.participants.filter(u => u!==userId); this._renderPresence(); }});
     }
   }
 
@@ -616,7 +712,7 @@ export class ChatbotWidget {
 
   // Public API
   open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); this._scrollThreadToEnd(); }
-  close(){ this.state.open = false; this.$win.classList.remove('cb-open'); }
+  close(){ this.state.open = false; this.$win.classList.remove('cb-open'); this._hideParticipantsPopover(); }
   toggle(){ this.state.open ? this.close() : this.open(); }
   _toggleFullscreen(){
     const btn = this.$header.querySelector('#cb-full');
@@ -650,4 +746,3 @@ export class ChatbotWidget {
   _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>'); }
   _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>'); }
 }
-

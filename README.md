@@ -49,7 +49,8 @@ To embed in any site, copy the `<link>`, `<script>`, and the settings `<div>` fr
       "listMessages": "/api/messages?since={timestamp}",
       "sendMessage": "/api/messages/send",
       "editMessage": "/api/messages/{id}/edit",
-      "uploadFile": "/api/files/upload"
+      "uploadFile": "/api/files/upload",
+      "searchUsers": "/api/users/search?q={query}"
     },
     "demoMode": true
   }'
@@ -98,6 +99,27 @@ When `demoMode: true`, the widget routes all API calls to an in-memory fake back
 When you switch `demoMode` off, the widget uses `fetch()` to call your provided URLs.
 
 
+## New: participants popover and user picker
+
+- Hover over the Participants button (in the chat header) to see the participants of the current conversation. You can remove a participant from there.
+- Click the + button in that popover to add a participant.
+- The New conversation button opens the same user picker to start a 1:1 conversation.
+
+The user picker is a simple modal with:
+- A search input at the top
+- A `select` below (size="8") showing search results from the server
+- You can only add one user at a time
+
+### Backend search endpoint
+
+When `demoMode: false`, configure a search endpoint in `urls.searchUsers`. The widget will call:
+
+- GET `/api/users/search?q={query}` → `{ ok: boolean, results: Array<{ userId: string, name?: string, online?: boolean }> }`
+  - The widget filters out `me` automatically and (when adding) already-participating users.
+
+Result items are displayed as `name (userId)` and show `• online` if `online: true`.
+
+
 ## Switching to a real backend
 
 Set `demoMode: false` and provide URLs:
@@ -110,6 +132,7 @@ Set `demoMode: false` and provide URLs:
     "sendMessage": "/api/messages/send",
     "editMessage": "/api/messages/{id}/edit",
     "uploadFile": "/api/files/upload",
+    "searchUsers": "/api/users/search?q={query}",
     "startConversation": "/api/conversations/start",
     "addParticipant": "/api/conversations/{conversationId}/participants",
     "removeParticipant": "/api/conversations/{conversationId}/participants/{userId}",
@@ -120,17 +143,17 @@ Set `demoMode: false` and provide URLs:
 }
 ```
 
-Expected payloads (you can adapt on your side):
+### Expected payloads
 
-- listMessages: GET, returns `{ ok, changes: { messages, conversations, typing, presence }, serverTime }`
-  - Should include changes updated after `since`. For first load, a full snapshot is fine.
+- listChanges/listMessages: GET → `{ ok, changes: { messages, conversations, typing, presence }, serverTime }`
 - sendMessage: POST `{ conversationId, text, attachments, channels, scheduleAt }` → `{ ok, message }`
 - editMessage: POST `{ newText }` → `{ ok }`
-- uploadFile: POST multipart form-data `file` → `{ ok, attachment }` where `attachment = { id, name, size, type, url }`
-- saveDraft / getDraft: saves or fetches `{ text, attachments }` per conversation
+- uploadFile: multipart `file` → `{ ok, attachment }`
+- saveDraft / getDraft → `{ ok }` / `{ ok, draft }`
 - startConversation: POST `{ participants: string[] }` → `{ ok, conversation }`
-- addParticipant/removeParticipant: add or remove a user in a conversation
+- addParticipant/removeParticipant → `{ ok }`
 - markAsRead: POST `{ conversationId, messageIds }` → `{ ok }`
+- searchUsers: GET `?q=...` → `{ ok, results: [{ userId, name?, online? }] }`
 
 
 ## Public JS API
