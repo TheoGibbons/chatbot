@@ -1,8 +1,8 @@
 # Chat Bot PHP API (Demo)
 
-This folder contains simple PHP endpoints that return hardcoded JSON so you can wire the frontend to a server quickly.
+This folder contains simple PHP endpoint examples that return hardcoded JSON.
 
-They mirror the default URLs used by `src/apiClient.js` when `demoMode` is false.
+They mirror the URLs used by `src/apiClient.js` when `demoMode` is false.
 
 ## Endpoints
 
