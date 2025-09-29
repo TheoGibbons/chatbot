@@ -14,6 +14,7 @@
 
   <div id="chatbot-anchor"
        data-chatbot-settings='{
+         "demoMode": false,
          "pollForMessages": 10000,
          "canStartMultipleConversations": true,
          "channels": {
@@ -38,8 +39,7 @@
            "startConversation": "/api/conversations/start.php",
            "markAsRead": "/api/messages/markAsRead.php",
            "searchUsers": "/api/users/search.php?q={query}"
-         },
-         "demoMode": true
+         }
        }'>
   </div>
 
