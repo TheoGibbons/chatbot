@@ -76,15 +76,17 @@ Top-level options (JSON on `data-chatbot-settings`):
   - maxFilesPerMessage: number (default 10)
   - maxFileSizeSingleFile: number in bytes (default 10MB)
   - limitFileTypes: array of extensions without dot (e.g., ["png","pdf"]) — optional
-- urls: only used when demoMode is false
+- urls: REQUIRED when `demoMode` is false (no defaults are provided)
   - listMessages: string, supports `{timestamp}` token
   - sendMessage: string
   - editMessage: string, supports `{id}` token
   - uploadFile: string
-  - Optional (if you implement them):
-    - startConversation, addParticipant, removeParticipant, saveDraft, getDraft, markAsRead
+  - searchUsers: string, supports `{query}` token
+  - Additional features (if you use them) must also be set: `startConversation`, `addParticipant`, `removeParticipant`, `saveDraft`, `getDraft`, `markAsRead`
 - demoMode: boolean, default true
 - theme: 'light' | 'dark' | 'auto' (default 'auto')
+
+Note: When `demoMode` is false, the widget will throw a clear error if any required URL is missing in `settings.urls`.
 
 
 ## Demo mode
@@ -122,7 +124,7 @@ Result items are displayed as `name (userId)` and show `• online` if `online: 
 
 ## Switching to a real backend
 
-Set `demoMode: false` and provide URLs:
+Set `demoMode: false` and provide ALL needed URLs (no defaults exist):
 
 ```json
 {

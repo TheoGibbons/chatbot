@@ -27,10 +27,17 @@
            "limitFileTypes": ["png","jpg","pdf","xls","gif","jpeg"]
          },
          "urls": {
-           "listMessages": "/api/messages?since={timestamp}",
-           "sendMessage": "/api/messages/send",
-           "editMessage": "/api/messages/{id}/edit",
-           "uploadFile": "/api/files/upload"
+           "listMessages": "/api/messages/index.php?since={timestamp}",
+           "sendMessage": "/api/messages/send.php",
+           "editMessage": "/api/messages/edit.php",
+           "uploadFile": "/api/files/upload.php",
+           "saveDraft": "/api/messages/draft.php",
+           "getDraft": "/api/messages/draft.php?conversationId={conversationId}",
+           "addParticipant": "/api/conversations/addParticipant.php",
+           "removeParticipant": "/api/conversations/removeParticipant.php",
+           "startConversation": "/api/conversations/start.php",
+           "markAsRead": "/api/messages/markAsRead.php",
+           "searchUsers": "/api/users/search.php?q={query}"
          },
          "demoMode": true
        }'>
