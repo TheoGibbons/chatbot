@@ -1,6 +1,15 @@
 <?php
-// POST /api/conversations/removeParticipant.php
-// Body: { conversationId: string, userId: string }
+/**
+ * Method: POST
+ * Path: /api/conversations/removeParticipant.php
+ * Body JSON params:
+ * - conversationId: string|null
+ * - userId: string|null
+ * Examples:
+ * // $conversationId = !empty($data['conversationId']) ? $data['conversationId'] : null;
+ * // $userId = !empty($data['userId']) ? $data['userId'] : null;
+ */
+
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -11,10 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $raw = file_get_contents('php://input');
 $data = json_decode($raw, true) ?: [];
-$conversationId = isset($data['conversationId']) ? $data['conversationId'] : null;
-$userId = isset($data['userId']) ? $data['userId'] : null;
-
-// Demo: no-op, always ok
-// In real code, remove $userId from $conversationId
+$conversationId = !empty($data['conversationId']) ? $data['conversationId'] : null;
+$userId = !empty($data['userId']) ? $data['userId'] : null;
 
 echo json_encode([ 'ok' => true ]);

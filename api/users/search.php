@@ -1,7 +1,17 @@
 <?php
-// GET /api/users/search?q=...
+/**
+ * Method: GET
+ * Path: /api/users/search.php?q={query}
+ * Query params:
+ * - q: string
+ * Examples:
+ * // $q = !empty($_GET['q']) ? $_GET['q'] : '';
+ */
+
 header('Content-Type: application/json');
-$q = isset($_GET['q']) ? $_GET['q'] : '';
+
+$q = !empty($_GET['q']) ? $_GET['q'] : '';
+
 echo json_encode([
     'ok'      => true,
     'results' => [
@@ -10,4 +20,3 @@ echo json_encode([
         ['userId' => 'u_jamie', 'name' => 'Jamie', 'online' => true]
     ]
 ]);
-

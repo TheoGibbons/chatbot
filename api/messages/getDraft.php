@@ -1,9 +1,18 @@
 <?php
-// GET /api/messages/{conversationId}/draft (via rewrite)
+/**
+ * Method: GET
+ * Path: /api/messages/draft.php?conversationId={conversationId}
+ * Query params:
+ * - conversationId: string
+ * Examples:
+ * // $conversationId = !empty($_GET['conversationId']) ? $_GET['conversationId'] : '';
+ */
+
 header('Content-Type: application/json');
-$conversationId = isset($_GET['conversationId']) ? $_GET['conversationId'] : 'c_general';
+
+$conversationId = !empty($_GET['conversationId']) ? $_GET['conversationId'] : 'c_general';
+
 echo json_encode([
     'ok'    => true,
     'draft' => ['text' => '', 'attachments' => []]
 ]);
-

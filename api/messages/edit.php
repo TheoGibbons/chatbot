@@ -1,6 +1,15 @@
 <?php
-// POST /api/messages/edit
-// Body: { id: string, newText: string }
+/**
+ * Method: POST
+ * Path: /api/messages/edit.php
+ * Body JSON params:
+ * - id: string
+ * - newText: string
+ * Examples:
+ * // $id = !empty($data['id']) ? $data['id'] : null;
+ * // $newText = !empty($data['newText']) ? $data['newText'] : null;
+ */
+
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -11,10 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $raw = file_get_contents('php://input');
 $data = json_decode($raw, true);
-$id = isset($data['id']) ? $data['id'] : null;
-$newText = isset($data['newText']) ? $data['newText'] : null;
-
-// Demo only: no persistence; always return ok
-// In a real implementation, validate $id, update message text, and return result
+$id = !empty($data['id']) ? $data['id'] : null;
+$newText = !empty($data['newText']) ? $data['newText'] : null;
 
 echo json_encode([ 'ok' => true ]);
