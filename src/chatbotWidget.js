@@ -408,6 +408,18 @@ export class ChatbotWidget {
     const msgs = this.state.messages.get(cid) || [];
     this.$thread.innerHTML = '';
     for (const m of msgs){
+      // Server-side/system message rendering
+      if (m.type === 'server'){
+        const wrap = h('div', { class: 'cb-msg cb-server' });
+        const bubble = h('div', { class: 'cb-bubble cb-server-bubble' });
+        bubble.appendChild(h('div', { class: 'cb-text' }, escapeHtml(m.text || '')));
+        const meta = h('div', { class: 'cb-msg-meta cb-server-meta' }, [ h('span', {}, fmtTime(m.createdAt)) ]);
+        bubble.appendChild(meta);
+        wrap.appendChild(bubble);
+        this.$thread.appendChild(wrap);
+        continue;
+      }
+
       const isMe = m.authorId === 'me';
       const wrap = h('div', { class: 'cb-msg'+(isMe?' cb-me':'') });
       const avatarText = (isMe?'Me':(m.authorId||'U')).slice(0,2).toUpperCase();
@@ -742,7 +754,7 @@ export class ChatbotWidget {
     for (const [cid, msgs] of this.state.messages.entries()){
       for (const m of msgs){
         const seen = (m.seenBy||[]).some(s => s.userId === 'me');
-        if (!seen && m.authorId !== 'me') count++;
+        if (m.type !== 'server' && !seen && m.authorId !== 'me') count++;
       }
     }
     this.state.unread = count;
@@ -752,7 +764,7 @@ export class ChatbotWidget {
   async _markThreadAsRead(){
     const cid = this.state.activeId; if (!cid) return;
     const msgs = this.state.messages.get(cid) || [];
-    const unreadIds = msgs.filter(m => m.authorId !== 'me' && !(m.seenBy||[]).some(s => s.userId==='me')).map(m => m.id);
+    const unreadIds = msgs.filter(m => m.type !== 'server' && m.authorId !== 'me' && !(m.seenBy||[]).some(s => s.userId==='me')).map(m => m.id);
     if (!unreadIds.length) return;
     const res = await this.api.markAsRead(cid, unreadIds);
     if (res?.ok){
@@ -784,6 +796,22 @@ export class ChatbotWidget {
   getUnreadCount(){ return this.state.unread; }
   on(evt, cb){ this.emitter.on(evt, cb); }
   setTheme(theme){ this.state.theme = theme; this._applyTheme(); }
+
+  // New: create a server/system message via backend
+  async addServerMessage(conversationId, text){
+    const res = await this.api.addServerMessage(conversationId, text);
+    if (res?.ok && res.message){
+      const m = res.message;
+      const arr = this.state.messages.get(m.conversationId) || [];
+      const ix = arr.findIndex(x => x.id === m.id);
+      if (ix >= 0) arr[ix] = Object.assign({}, arr[ix], m); else arr.push(m);
+      arr.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+      this.state.messages.set(m.conversationId, arr);
+      if (this.state.activeId === m.conversationId) { this._renderThread(true); this._updateUnreadBadge(); }
+      this.emitter.emit('message', m);
+    }
+    return res;
+  }
 
   // Icons
   _iconChat(sz=22){ return h('svg', { width: sz, height: sz, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' }, '<path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>' ); }

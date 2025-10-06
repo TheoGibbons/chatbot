@@ -162,6 +162,18 @@
 
 .cb-typing { font: 12px/1 var(--cb-font); color: var(--cb-muted); padding: 6px 12px; }
 
+/* Server/system messages */
+.cb-msg.cb-server { grid-template-columns: 1fr; }
+.cb-server-bubble {
+  background: rgba(245, 158, 11, 0.14); /* amber tint */
+  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--cb-text);
+  text-align: center;
+  max-width: 85%;
+  margin: 6px auto;
+}
+.cb-server-meta { justify-content: center; }
+
 /* Composer */
 .cb-composer {
   border-top: 1px solid var(--cb-border);

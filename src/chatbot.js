@@ -24,7 +24,8 @@ function initAll(){
     markAsRead: (conversationId, messageIds) => widget.markAsRead(conversationId, messageIds),
     getUnreadCount: () => widget.getUnreadCount(),
     on: (event, cb) => widget.on(event, cb),
-    setTheme: (theme) => widget.setTheme(theme)
+    setTheme: (theme) => widget.setTheme(theme),
+    addServerMessage: (conversationId, text) => widget.addServerMessage(conversationId, text),
   };
 }
 

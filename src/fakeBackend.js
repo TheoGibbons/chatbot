@@ -121,4 +121,11 @@ export class FakeBackend {
     await sleep(150 + Math.random()*250);
     return { ok: true, results };
   }
+  async addServerMessage({ conversationId, text }){
+    const iso = nowIso();
+    const msg = { id: uid(), conversationId, authorId: 'server', type: 'server', text, createdAt: iso, updatedAt: iso, attachments: [], channels: {}, seenBy: [] };
+    this.messages.push(msg);
+    const c = this.conversations.find(x => x.id === conversationId); if (c){ c.updatedAt = iso; this._touch(); }
+    return { ok: true, message: msg };
+  }
 }

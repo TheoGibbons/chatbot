@@ -84,4 +84,9 @@ export class ApiClient {
     const res = await fetch(url, { credentials: 'include' });
     return res.json();
   }
+  async addServerMessage(conversationId, text){
+    if (this.demo) return this.demo.addServerMessage({ conversationId, text });
+    // Non-demo: server inserts messages; clients receive via listChanges.
+    return { ok: false, error: 'not_supported_in_production' };
+  }
 }
