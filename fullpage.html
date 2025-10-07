@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat - Full Page Mode</title>
+  <link rel="stylesheet" href="./src/chatbot.css" />
+  <style>
+    body { margin: 0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; display:flex; flex-direction:column; min-height:100vh; }
+    header { padding: 12px 20px; background:#1e293b; color:#fff; display:flex; align-items:center; gap:20px; }
+    header a { color:#93c5fd; text-decoration:none; }
+    #chat-root { flex:1; position:relative; min-height:0; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Your Site Header</strong>
+    <nav style="display:flex; gap:14px;">
+      <a href="#">Home</a>
+      <a href="#">Docs</a>
+      <a href="#">Pricing</a>
+    </nav>
+  </header>
+  <!-- In page mode the window consumes remaining space inside #chat-root -->
+  <div id="chat-root"
+       data-chatbot-settings='{
+         "layout": "page",
+         "demoMode": true,
+         "pollForMessages": 8000,
+         "channels": {"sms": true, "whatsapp": { "enabledUntil": "2025-09-24T12:34:54Z" }, "email": true},
+         "fileUpload": { "maxFilesPerMessage": 10, "maxFileSizeSingleFile": 10000000, "limitFileTypes": ["png","jpg","pdf","xls","gif","jpeg"] },
+         "urls": {
+           "listMessages": "/api/messages/index.php?since={timestamp}",
+           "sendMessage": "/api/messages/send.php",
+           "editMessage": "/api/messages/edit.php",
+           "uploadFile": "/api/files/upload.php",
+           "saveDraft": "/api/messages/draft.php",
+           "getDraft": "/api/messages/draft.php?conversationId={conversationId}",
+           "addParticipant": "/api/conversations/addParticipant.php",
+           "removeParticipant": "/api/conversations/removeParticipant.php",
+           "startConversation": "/api/conversations/start.php",
+           "markAsRead": "/api/messages/markAsRead.php",
+           "searchUsers": "/api/users/search.php?q={query}"
+         }
+       }'>
+  </div>
+  <script type="module" src="./src/chatbot.js"></script>
+</body>
+</html>
+

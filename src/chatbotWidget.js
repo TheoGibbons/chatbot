@@ -12,12 +12,14 @@ export class ChatbotWidget {
       fileUpload: { maxFilesPerMessage: 10, maxFileSizeSingleFile: 10_000_000, limitFileTypes: [] },
       urls: {},
       demoMode: true,
-      theme: 'auto'
+      theme: 'auto',
+      // New: layout modes: 'widget' (default floating), 'page' (full-page), 'embedded' (fills anchor element)
+      layout: 'widget'
     }, settings || {});
     this.api = new ApiClient(this.settings);
     this.emitter = new Emitter();
     this.state = {
-      open: false,
+      open: this.settings.layout !== 'widget', // auto-open for page/embedded
       theme: this.settings.theme || 'auto',
       conversations: [],
       activeId: null,
@@ -38,13 +40,21 @@ export class ChatbotWidget {
 
   // UI
   _buildUI(){
-    this.$launcher = h('div', { class: 'cb-launcher', role: 'button', tabindex: '0', 'aria-label': 'Open chat' }, [
-      this._iconChat(),
-      h('span', { class: 'cb-badge-dot', style: 'display:none' })
-    ]);
-    document.body.appendChild(this.$launcher);
+    const isWidget = this.settings.layout === 'widget';
+    const isPage = this.settings.layout === 'page';
+    const isEmbedded = this.settings.layout === 'embedded';
 
-    this.$win = h('div', { class: 'cb-window' });
+    if (isWidget){
+      this.$launcher = h('div', { class: 'cb-launcher', role: 'button', tabindex: '0', 'aria-label': 'Open chat' }, [
+        this._iconChat(),
+        h('span', { class: 'cb-badge-dot', style: 'display:none' })
+      ]);
+      document.body.appendChild(this.$launcher);
+    } else {
+      this.$launcher = null; // guard references
+    }
+
+    this.$win = h('div', { class: 'cb-window'+(this.state.open?' cb-open':'')+(isPage?' cb-mode-page':'')+(isEmbedded?' cb-mode-embedded':'') });
     const header = this.$header = h('div', { class: 'cb-header' }, [
       h('div', { class: 'cb-presence', id: 'cb-presence' }),
       h('div', {}, [
@@ -55,8 +65,9 @@ export class ChatbotWidget {
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users', type: 'button' }, this._iconUsers()),
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'New conversation', 'aria-label': 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none'), type: 'button' }, this._iconPlus()),
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Theme', 'aria-label': 'Theme', id: 'cb-theme', type: 'button' }, this._iconSun()),
-      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Fullscreen', 'aria-label': 'Fullscreen', id: 'cb-full', type: 'button' }, this._iconExpand()),
-      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Close', 'aria-label': 'Close', id: 'cb-close', type: 'button' }, this._iconX())
+      // Fullscreen & Close hidden in page mode (already full) but kept in embedded in case host wants expansion
+      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Fullscreen', 'aria-label': 'Fullscreen', id: 'cb-full', type: 'button', style: (isPage?'display:none':'') }, this._iconExpand()),
+      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': isWidget? 'Close' : 'Hide', 'aria-label': isWidget? 'Close' : 'Hide', id: 'cb-close', type: 'button', style: (!isWidget && !isEmbedded ? 'display:none' : '') }, this._iconX())
     ]);
 
     const sidebar = this.$sidebar = h('div', { class: 'cb-sidebar' });
@@ -111,14 +122,25 @@ export class ChatbotWidget {
     this.$win.appendChild(header);
     this.$win.appendChild(body);
     this.$win.appendChild(composer);
-    document.body.appendChild(this.$win);
+
+    // Append window depending on layout
+    if (isPage){
+      // Full page: ensure anchor (or body) can host it
+      const host = this.anchor || document.body;
+      host.appendChild(this.$win);
+    } else if (isEmbedded){
+      const host = this.anchor || document.body;
+      host.appendChild(this.$win);
+    } else {
+      document.body.appendChild(this.$win);
+    }
   }
 
   _applyTheme(){
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
     const dark = this.state.theme === 'dark' || (this.state.theme === 'auto' && mql.matches);
     this.$win.classList.toggle('cb-dark', dark);
-    this.$launcher.classList.toggle('cb-dark', dark);
+    if (this.$launcher) this.$launcher.classList.toggle('cb-dark', dark);
     const btn = this.$header?.querySelector('#cb-theme');
     if (btn){
       btn.innerHTML = '';
@@ -132,15 +154,25 @@ export class ChatbotWidget {
   }
 
   _wireEvents(){
-    this.$launcher.addEventListener('click', () => this.toggle());
-    this.$launcher.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); } });
-    this.$header.querySelector('#cb-close').addEventListener('click', () => this.close());
-    this.$header.querySelector('#cb-theme').addEventListener('click', () => {
-      const order = ['auto','dark','light'];
-      const idx = order.indexOf(this.state.theme);
-      const next = order[(idx + 1) % order.length];
-      this.setTheme(next);
-    });
+    if (this.$launcher){
+      this.$launcher.addEventListener('click', () => this.toggle());
+      this.$launcher.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); } });
+    }
+    const closeBtn = this.$header.querySelector('#cb-close');
+    if (closeBtn){
+      closeBtn.addEventListener('click', () => {
+        if (this.settings.layout === 'widget' || this.settings.layout === 'embedded') this.close();
+      });
+    }
+    const themeBtn = this.$header.querySelector('#cb-theme');
+    if (themeBtn){
+      themeBtn.addEventListener('click', () => {
+        const order = ['auto','dark','light'];
+        const idx = order.indexOf(this.state.theme);
+        const next = order[(idx + 1) % order.length];
+        this.setTheme(next);
+      });
+    }
     const newBtn = this.$header.querySelector('#cb-new');
     if (newBtn) newBtn.addEventListener('click', () => this._openUserPicker({ mode: 'start' }));
 
@@ -152,7 +184,10 @@ export class ChatbotWidget {
     }
     document.addEventListener('click', () => this._hideParticipantsPopover());
 
-    this.$header.querySelector('#cb-full').addEventListener('click', () => this._toggleFullscreen());
+    const fullBtn = this.$header.querySelector('#cb-full');
+    if (fullBtn){
+      fullBtn.addEventListener('click', () => this._toggleFullscreen());
+    }
 
     const sendBtn = this.$actions.querySelector('#cb-send');
     if (sendBtn) sendBtn.addEventListener('click', () => this._sendNow());
@@ -361,14 +396,14 @@ export class ChatbotWidget {
           this._renderPresence();
         } else {
           const r = await this.api.startConversation([userId]);
-          if (r?.ok){
-            this.state.conversations.push(r.conversation);
-            this.state.activeId = r.conversation.id;
-            this._renderConversations();
-            this._renderThread(true);
-            this._saveDraft();
-            this.emitter.emit('conversation', r.conversation);
-          }
+            if (r?.ok){
+              this.state.conversations.push(r.conversation);
+              this.state.activeId = r.conversation.id;
+              this._renderConversations();
+              this._renderThread(true);
+              this._saveDraft();
+              this.emitter.emit('conversation', r.conversation);
+            }
         }
         close();
       } finally {
@@ -758,8 +793,10 @@ export class ChatbotWidget {
       }
     }
     this.state.unread = count;
-    const dot = this.$launcher.querySelector('.cb-badge-dot');
-    dot.style.display = count > 0 ? 'block' : 'none';
+    if (this.$launcher){
+      const dot = this.$launcher.querySelector('.cb-badge-dot');
+      if (dot) dot.style.display = count > 0 ? 'block' : 'none';
+    }
   }
   async _markThreadAsRead(){
     const cid = this.state.activeId; if (!cid) return;
@@ -777,16 +814,21 @@ export class ChatbotWidget {
 
   // Public API
   open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); this._scrollThreadToEnd(); }
-  close(){ this.state.open = false; this.$win.classList.remove('cb-open'); this._hideParticipantsPopover(); }
-  toggle(){ this.state.open ? this.close() : this.open(); }
+  close(){
+    if (this.settings.layout === 'widget' || this.settings.layout === 'embedded'){ this.state.open = false; this.$win.classList.remove('cb-open'); this._hideParticipantsPopover(); }
+  }
+  toggle(){ (this.state.open ? this.close() : this.open()); }
   _toggleFullscreen(){
+    if (this.settings.layout !== 'widget' && this.settings.layout !== 'embedded') return; // disable in page mode
     const btn = this.$header.querySelector('#cb-full');
     const isFull = this.$win.classList.toggle('cb-full');
-    btn.innerHTML = '';
-    btn.appendChild(isFull ? this._iconCompress() : this._iconExpand());
-    btn.setAttribute('data-tip', isFull ? 'Exit fullscreen' : 'Fullscreen');
-    btn.setAttribute('aria-label', isFull ? 'Exit fullscreen' : 'Fullscreen');
-    btn.classList.add('cb-tooltip');
+    if (btn){
+      btn.innerHTML = '';
+      btn.appendChild(isFull ? this._iconCompress() : this._iconExpand());
+      btn.setAttribute('data-tip', isFull ? 'Exit fullscreen' : 'Fullscreen');
+      btn.setAttribute('aria-label', isFull ? 'Exit fullscreen' : 'Fullscreen');
+      btn.classList.add('cb-tooltip');
+    }
   }
   async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true); this._updateSendDisabled();} return r.conversation; }
   async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants.includes(userId)) c.participants.push(userId);} }
@@ -797,7 +839,7 @@ export class ChatbotWidget {
   on(evt, cb){ this.emitter.on(evt, cb); }
   setTheme(theme){ this.state.theme = theme; this._applyTheme(); }
 
-  // New: create a server/system message via backend
+  // Create a server/system message via backend (restored)
   async addServerMessage(conversationId, text){
     const res = await this.api.addServerMessage(conversationId, text);
     if (res?.ok && res.message){
@@ -813,17 +855,17 @@ export class ChatbotWidget {
     return res;
   }
 
-  // Icons
+  // Icons (restored)
   _iconChat(sz=22){ return h('svg', { width: sz, height: sz, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' }, '<path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>' ); }
-  _iconX(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M18 6 6 18M6 6l12 12"/>'); }
-  _iconPlus(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M12 5v14M5 12h14"/>'); }
-  _iconSun(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.364 6.364-1.414-1.414M6.05 6.05 4.636 4.636m12.728 0-1.414 1.414M6.05 17.95l-1.414 1.414"/>'); }
-  _iconMoon(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79"/>'); }
-  _iconPaperclip(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21.44 11.05 12.37 20.12a6 6 0 1 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66L9.88 17.15a2 2 0 0 1-2.83-2.83l8.13-8.12"/>'); }
-  _iconChevronUp(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="m18 15-6-6-6 6"/>'); }
-  _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 21v-4a2 2 0 0 1 2-2h4m5-9 3 3M7 17l9-9 3 3-9 9H7z"/>'); }
-  _iconUsers(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
-  _iconExpand(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/>'); }
-  _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>'); }
-  _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>'); }
+  _iconX(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M18 6 6 18M6 6l12 12"/>' ); }
+  _iconPlus(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M12 5v14M5 12h14"/>' ); }
+  _iconSun(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.364 6.364-1.414-1.414M6.05 6.05 4.636 4.636m12.728 0-1.414 1.414M6.05 17.95l-1.414 1.414"/>' ); }
+  _iconMoon(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79"/>' ); }
+  _iconPaperclip(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21.44 11.05 12.37 20.12a6 6 0 1 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66L9.88 17.15a2 2 0 0 1-2.83-2.83l8.13-8.12"/>' ); }
+  _iconChevronUp(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="m18 15-6-6-6 6"/>' ); }
+  _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 21v-4a2 2 0 0 1 2-2h4m5-9 3 3M7 17l9-9 3 3-9 9H7z"/>' ); }
+  _iconUsers(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' ); }
+  _iconExpand(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/>' ); }
+  _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>' ); }
+  _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>' ); }
 }

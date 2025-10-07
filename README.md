@@ -85,6 +85,7 @@ Top-level options (JSON on `data-chatbot-settings`):
   - Additional features (if you use them) must also be set: `startConversation`, `addParticipant`, `removeParticipant`, `saveDraft`, `getDraft`, `markAsRead`
 - demoMode: boolean, default true
 - theme: 'light' | 'dark' | 'auto' (default 'auto')
+- layout: 'widget' | 'page' | 'embedded' (default 'widget')
 
 Note: When `demoMode` is false, the widget will throw a clear error if any required URL is missing in `settings.urls`.
 
@@ -154,7 +155,7 @@ Set `demoMode: false` and provide ALL needed URLs (no defaults exist):
 - saveDraft / getDraft → `{ ok }` / `{ ok, draft }`
 - startConversation: POST `{ participants: string[] }` → `{ ok, conversation }`
 - addParticipant/removeParticipant → `{ ok }`
-- markAsRead: POST `{ conversationId, messageIds }` → `{ ok }`
+- markAsRead: POST `{ conversationId, messageIds: string[] }` → `{ ok }`
 - searchUsers: GET `?q=...` → `{ ok, results: [{ userId, name?, online? }] }`
 
 
@@ -225,3 +226,63 @@ Then open http://localhost:8080/ in your browser.
 ## License
 
 MIT (or choose your preferred license).
+
+## Layout modes (NEW)
+
+You can now choose how the chat renders via the `layout` setting (defaults to `widget`).
+
+- `widget` (default): Floating launcher + popover style window (original behavior).
+- `page`: Full-page app view (like WhatsApp Web) that fills the viewport height. Suitable for a dedicated /chat route; you can still wrap it with your own site header/footer.
+- `embedded`: Renders inline inside the anchor element you place on the page. No floating launcher. You control the container's size (e.g. a panel or a dashboard card).
+
+### Widget (default)
+Nothing to change (omit the property or set `"layout":"widget"`).
+
+### Full page example
+Create a `/chat` route and include:
+```html
+<link rel="stylesheet" href="/src/chatbot.css" />
+<header>My Site Header</header>
+<div id="chat-root"
+     data-chatbot-settings='{"layout":"page","demoMode":true}'>
+</div>
+<script type="module" src="/src/chatbot.js"></script>
+```
+- The chat window auto-opens, occupies full viewport height, removes borders/radius, and hides the floating launcher & fullscreen button.
+
+### Embedded panel example
+Provide a sized container and set `layout` to `embedded`:
+```html
+<link rel="stylesheet" href="/src/chatbot.css" />
+<div style="width:100%;max-width:1000px;margin:0 auto;">
+  <h2>Support Inbox</h2>
+  <div class="cb-embedded-host">
+    <div data-chatbot-settings='{"layout":"embedded","demoMode":true,"pollForMessages":8000}'></div>
+  </div>
+</div>
+<script type="module" src="/src/chatbot.js"></script>
+```
+Notes:
+- The `.cb-embedded-host` helper class (added in CSS) sets `height:600px`. Adjust or replace with your own style.
+- In embedded/page modes the chat is always visible (no launcher toggle). Public API `open/close/toggle` still exist but `close()` is ignored for `page` mode.
+
+### When to use which
+| Use case | Mode |
+|----------|------|
+| Drop-in contact widget on marketing site | widget |
+| Standalone internal messaging portal | page |
+| Admin dashboard panel or CRM sidebar | embedded |
+
+### Relevant differences
+- Launcher button only exists in `widget` mode.
+- Fullscreen toggle hidden in `page` mode (already full) but available in `widget` and `embedded`.
+- Auto-open: `page` and `embedded` start open; `widget` starts closed.
+
+### Setting summary additions
+Add to configuration JSON:
+```json
+{
+  "layout": "widget | page | embedded"
+}
+```
+If omitted, defaults to `widget` for backward compatibility.

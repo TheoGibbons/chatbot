@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat - Embedded Mode Demo</title>
+  <link rel="stylesheet" href="./src/chatbot.css" />
+  <style>
+    body { margin: 0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    .wrap { max-width: 1100px; margin:0 auto; padding: 24px; }
+    .panel { background:#f1f5f9; border:1px solid #e2e8f0; padding:16px; border-radius:12px; }
+    .cb-embedded-host { height:600px; } /* ensure space for chat */
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Embedded Chat Demo</h1>
+    <p>This page shows the <code>embedded</code> layout: the chat sits inside a normal content flow, no floating launcher.</p>
+    <div class="panel">
+      <h2 style="margin-top:0">Support Inbox</h2>
+      <div class="cb-embedded-host">
+        <div data-chatbot-settings='{
+          "layout": "embedded",
+          "demoMode": true,
+          "pollForMessages": 7000,
+          "channels": {"sms": true, "whatsapp": { "enabledUntil": "2025-09-24T12:34:54Z" }, "email": true},
+          "fileUpload": { "maxFilesPerMessage": 10, "maxFileSizeSingleFile": 10000000, "limitFileTypes": ["png","jpg","pdf","xls","gif","jpeg"] },
+          "urls": {
+            "listMessages": "/api/messages/index.php?since={timestamp}",
+            "sendMessage": "/api/messages/send.php",
+            "editMessage": "/api/messages/edit.php",
+            "uploadFile": "/api/files/upload.php",
+            "saveDraft": "/api/messages/draft.php",
+            "getDraft": "/api/messages/draft.php?conversationId={conversationId}",
+            "addParticipant": "/api/conversations/addParticipant.php",
+            "removeParticipant": "/api/conversations/removeParticipant.php",
+            "startConversation": "/api/conversations/start.php",
+            "markAsRead": "/api/messages/markAsRead.php",
+            "searchUsers": "/api/users/search.php?q={query}"
+          }
+        }'></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/chatbot.js"></script>
+</body>
+</html>
+
