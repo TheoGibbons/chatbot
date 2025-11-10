@@ -31,7 +31,6 @@ if ($method === 'POST') {
 }
 if ($method === 'GET') {
   // Fetch draft for conversationId (demo returns empty draft)
-  // $conversationId = !empty($_GET['conversationId']) ? $_GET['conversationId'] : '';
   $conversationId = !empty($_GET['conversationId']) ? $_GET['conversationId'] : '';
   $response = [ 'ok' => true, 'draft' => [ 'text' => '', 'attachments' => [] ] ];
   echo json_encode($response);

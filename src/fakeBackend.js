@@ -10,8 +10,8 @@ export class FakeBackend {
       { id: 'u_jamie', name: 'Jamie', online: true },
     ];
     this.conversations = [
-      { id: 'c_general', name: 'General', participants: ['me','u_alex','u_jamie'], createdAt: nowIso(), updatedAt: nowIso() },
-      { id: 'c_support', name: 'Support', participants: ['me','u_sam'], createdAt: nowIso(), updatedAt: nowIso() },
+      { id: 'c_general', name: 'General', participants: ['me','u_alex','u_jamie'], createdAt: nowIso(), updatedAt: nowIso(), replyHint: 'We reply in minutes' },
+      { id: 'c_support', name: 'Support', participants: ['me','u_sam'], createdAt: nowIso(), updatedAt: nowIso(), replyHint: '' },
     ];
     const iso = nowIso();
     this.messages = [

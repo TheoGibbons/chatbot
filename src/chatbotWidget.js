@@ -61,7 +61,8 @@ export class ChatbotWidget {
       h('div', { class: 'cb-presence', id: 'cb-presence' }),
       h('div', {}, [
         h('div', { class: 'cb-title' }, 'Chat'),
-        h('div', { class: 'cb-subtitle', id: 'cb-subtitle' }, 'We reply in minutes')
+        // Subtitle now dynamic per conversation; start empty
+        h('div', { class: 'cb-subtitle', id: 'cb-subtitle', style: 'display:none' }, '')
       ]),
       h('div', { class: 'cb-spacer' }),
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users', type: 'button' }, this._iconUsers()),
@@ -280,6 +281,7 @@ export class ChatbotWidget {
     this._renderThread();
     this._renderTyping();
     this._renderPresence();
+    this._updateSubtitle();
 
     for (const c of newConvos) this.emitter.emit('conversation', c);
     for (const m of newMessages) this.emitter.emit('message', m);
@@ -428,11 +430,23 @@ export class ChatbotWidget {
       const meta = lastMsg ? (escapeHtml(lastMsg.text).slice(0, 28) + (lastMsg.text.length>28?'…':'')) : 'No messages';
       el.appendChild(h('div', { class: 'cb-convo-name' }, escapeHtml(c.name)));
       el.appendChild(h('div', { class: 'cb-convo-meta' }, meta));
-      el.addEventListener('click', () => { this.state.activeId = c.id; this._renderConversations(); this._renderThread(true); this._loadDraft(); this._updateUnreadBadge(); this._renderPresence(); this._updateSendDisabled(); this._hideParticipantsPopover(); });
+      el.addEventListener('click', () => {
+        this.state.activeId = c.id;
+        this._renderConversations();
+        this._renderThread(true);
+        this._loadDraft();
+        this._updateUnreadBadge();
+        this._renderPresence();
+        this._updateSendDisabled();
+        this._hideParticipantsPopover();
+        this._updateSubtitle();
+      });
       this.$sidebar.appendChild(el);
     }
     const showSidebar = this.state.conversations.length > 1;
     this.$sidebar.style.display = showSidebar ? 'block' : 'none';
+    // Update subtitle if active conversation changed due to sorting/render
+    this._updateSubtitle();
   }
   _selectFirstConversation(){
     if (!this.state.activeId && this.state.conversations.length) {
@@ -440,6 +454,7 @@ export class ChatbotWidget {
       this._renderThread(true);
       this._loadDraft();
       this._updateSendDisabled();
+      this._updateSubtitle();
     }
   }
 
@@ -932,6 +947,18 @@ export class ChatbotWidget {
   on(evt, cb){ this.emitter.on(evt, cb); }
   setTheme(theme){ this.state.theme = theme; this._applyTheme(); }
 
+  // Implement subtitle updater (conversation-based replyHint)
+  _updateSubtitle(){
+    const el = this.$header?.querySelector('#cb-subtitle');
+    if (!el) return; // element absent, nothing to do
+    const cid = this.state.activeId;
+    if (!cid){ el.textContent=''; el.style.display='none'; return; }
+    const convo = this.state.conversations.find(x => x.id === cid);
+    const hint = (convo && typeof convo.replyHint === 'string') ? convo.replyHint.trim() : '';
+    if (hint){ el.textContent = hint; el.style.display = ''; }
+    else { el.textContent = ''; el.style.display = 'none'; }
+  }
+
   // Create a server/system message via backend (restored)
   async addServerMessage(conversationId, text){
     const res = await this.api.addServerMessage(conversationId, text);
@@ -963,4 +990,3 @@ export class ChatbotWidget {
   _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>' ); }
   _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>' ); }
 }
-

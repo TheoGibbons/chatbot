@@ -20,6 +20,7 @@ $conversations = [
         'participants' => ['me', 'u_alex', 'u_jamie'],
         'createdAt'    => $now,
         'updatedAt'    => $now,
+        'replyHint'    => 'We reply in minutes'
     ],
     [
         'id'           => 'c_support',
@@ -27,6 +28,7 @@ $conversations = [
         'participants' => ['me', 'u_sam'],
         'createdAt'    => $now,
         'updatedAt'    => $now,
+        'replyHint'    => ''
     ],
 ];
 
