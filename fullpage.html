@@ -25,7 +25,7 @@
   <div id="chat-root"
        data-chatbot-settings='{
          "layout": "page",
-         "demoMode": true,
+         "demoMode": false,
          "pollForMessages": 8000,
          "channels": {"sms": true, "whatsapp": { "enabledUntil": "2025-09-24T12:34:54Z" }, "email": true},
          "fileUpload": { "maxFilesPerMessage": 10, "maxFileSizeSingleFile": 10000000, "limitFileTypes": ["png","jpg","pdf","xls","gif","jpeg"] },
@@ -33,6 +33,9 @@
            "listMessages": "/api/messages/index.php?since={timestamp}",
            "sendMessage": "/api/messages/send.php",
            "editMessage": "/api/messages/edit.php",
+           "deleteMessage": "/api/messages/delete.php",
+           "canEditMessage": "/api/messages/canEdit.php",
+           "canDeleteMessage": "/api/messages/canDelete.php",
            "uploadFile": "/api/files/upload.php",
            "saveDraft": "/api/messages/draft.php",
            "getDraft": "/api/messages/draft.php?conversationId={conversationId}",
@@ -47,4 +50,3 @@
   <script type="module" src="./src/chatbot.js"></script>
 </body>
 </html>
-
