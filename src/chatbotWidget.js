@@ -483,6 +483,14 @@ export class ChatbotWidget {
         ta.addEventListener('input', () => {
           if (this.state.editing && this.state.editing.messageId === m.id){ this.state.editing.text = ta.textContent || ''; }
         });
+        // NEW: Esc to cancel editing
+        ta.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape'){
+            e.preventDefault();
+            this.state.editing = null;
+            this._renderThread();
+          }
+        });
         const btnSave = h('button', { class: 'cb-send-btn', style: 'margin-top:6px;' }, 'Save');
         const btnCancel = h('button', { class: 'cb-icon-btn', style: 'margin-left:6px; margin-top:6px;' }, 'Cancel');
         btnCancel.addEventListener('click', () => { this.state.editing = null; this._renderThread(); });
