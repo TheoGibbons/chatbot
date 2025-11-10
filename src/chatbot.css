@@ -76,7 +76,6 @@
   bottom: calc(var(--cb-gap) + var(--cb-launcher-size) + 10px);
   width: 20vw; /* 20% of screen width */
   height: calc((100vh - var(--cb-launcher-size)) * 0.9); /* 90% of (screen height - launcher) */
-  background: var(--cb-bg);
   color: var(--cb-text);
   border: 1px solid var(--cb-border);
   border-radius: var(--cb-radius);
