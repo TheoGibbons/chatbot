@@ -526,7 +526,7 @@ export class ChatbotWidget {
       const meta = h('div', { class: 'cb-msg-meta' }, [
         h('span', {}, fmtTime(m.createdAt)),
         (m.seenBy?.length? h('span', { class: 'cb-tooltip', 'data-tip': m.seenBy.map(s => `${s.userId} at ${fmtTime(s.at)}`).join('\n') }, 'Seen by '+m.seenBy.map(s => s.userId).join(', ')) : ''),
-        (!isEditing && isMe ? h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', onclick: () => this._inlineEditMessage(m), type: 'button' }, this._iconEdit()) : '')
+        (!isEditing && isMe ? this._renderEditDeleteControls(m) : '')
       ]);
       bubble.appendChild(meta);
       wrap.appendChild(bubble);
@@ -862,6 +862,49 @@ export class ChatbotWidget {
     }
   }
 
+  _renderEditDeleteControls(m){
+    const wrap = document.createDocumentFragment();
+    const editBtn = h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', type: 'button' }, this._iconEdit());
+    const delBtn = h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Delete', 'aria-label': 'Delete message', type: 'button' }, this._iconTrash?.() || this._iconX());
+    // default disabled until check completes
+    editBtn.disabled = true; delBtn.disabled = true;
+    // async permission check
+    Promise.all([
+      this.api.canEditMessage(m.id),
+      this.api.canDeleteMessage(m.id)
+    ]).then(([ce, cd]) => {
+      const canE = !!ce?.can; const canD = !!cd?.can;
+      editBtn.disabled = !canE;
+      delBtn.disabled = !canD;
+      editBtn.setAttribute('data-tip', canE ? 'Edit' : 'Cannot edit: newer message exists');
+      delBtn.setAttribute('data-tip', canD ? 'Delete' : 'Cannot delete: newer message exists');
+    }).catch(() => { /* keep disabled on error */ });
+
+    editBtn.addEventListener('click', () => this._inlineEditMessage(m));
+    delBtn.addEventListener('click', () => this._confirmDeleteMessage(m));
+
+    wrap.appendChild(editBtn);
+    wrap.appendChild(delBtn);
+    return wrap;
+  }
+
+  async _confirmDeleteMessage(m){
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+    const can = await this.api.canDeleteMessage(m.id);
+    if (!can?.ok || !can.can){ alert('Cannot delete this message because a newer message exists.'); return; }
+    const res = await this.api.deleteMessage(m.id);
+    if (res?.ok){
+      const cid = m.conversationId;
+      const arr = this.state.messages.get(cid) || [];
+      this.state.messages.set(cid, arr.filter(x => x.id !== m.id));
+      this._renderThread();
+      this._updateUnreadBadge();
+      this.emitter.emit('message', { id: m.id, deleted: true, conversationId: cid });
+    } else {
+      alert('Delete failed');
+    }
+  }
+
   // Public API
   open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); this._scrollThreadToEnd(); }
   close(){
@@ -915,6 +958,7 @@ export class ChatbotWidget {
   _iconChevronUp(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="m18 15-6-6-6 6"/>' ); }
   _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 21v-4a2 2 0 0 1 2-2h4m5-9 3 3M7 17l9-9 3 3-9 9H7z"/>' ); }
   _iconUsers(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' ); }
+  _iconTrash(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/><path d="M10 6V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/>' ); }
   _iconExpand(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/>' ); }
   _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>' ); }
   _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>' ); }

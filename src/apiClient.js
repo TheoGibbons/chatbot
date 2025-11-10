@@ -33,6 +33,24 @@ export class ApiClient {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, newText }), credentials: 'include' });
     return res.json();
   }
+  async deleteMessage(id){
+    if (this.demo) return this.demo.deleteMessage({ id });
+    const url = this._requireUrl('deleteMessage');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), credentials: 'include' });
+    return res.json();
+  }
+  async canEditMessage(id){
+    if (this.demo) return this.demo.canEditMessage({ id });
+    const url = this._requireUrl('canEditMessage');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), credentials: 'include' });
+    return res.json();
+  }
+  async canDeleteMessage(id){
+    if (this.demo) return this.demo.canDeleteMessage({ id });
+    const url = this._requireUrl('canDeleteMessage');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), credentials: 'include' });
+    return res.json();
+  }
   async uploadFile(file){
     if (this.demo) return this.demo.uploadFile({ file });
     const url = this._requireUrl('uploadFile');

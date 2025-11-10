@@ -64,6 +64,27 @@ export class FakeBackend {
     m.text = newText; m.updatedAt = nowIso(); this._touch();
     return { ok: true };
   }
+  async deleteMessage({ id }){
+    const m = this.messages.find(x => x.id === id);
+    if (!m) return { ok:false, error: 'not_found' };
+    this.messages = this.messages.filter(x => x.id !== id);
+    const c = this.conversations.find(x => x.id === m.conversationId);
+    if (c){ c.updatedAt = nowIso(); }
+    this._touch();
+    return { ok: true };
+  }
+  async canEditMessage({ id }){
+    const m = this.messages.find(x => x.id === id);
+    if (!m) return { ok:false, can:false };
+    if (m.authorId !== 'me') return { ok:true, can:false };
+    // only allowed if no newer message exists in same conversation
+    const newer = this.messages.some(x => x.conversationId === m.conversationId && Date.parse(x.createdAt) > Date.parse(m.createdAt));
+    return { ok:true, can: !newer };
+  }
+  async canDeleteMessage({ id }){
+    // same rule as canEdit in this demo
+    return this.canEditMessage({ id });
+  }
   async uploadFile({ file }){
     await sleep(300 + Math.random()*500);
     const id = uid();
