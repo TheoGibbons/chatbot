@@ -226,7 +226,7 @@
 .cb-popover h4 { margin: 0 0 6px 0; font: 600 12px/1 var(--cb-font); color: var(--cb-muted); }
 .cb-pop-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow: auto; }
 .cb-pop-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 12px/1 var(--cb-font); }
-.cb-pop-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.cb-pop-actions { display: flex; gap: 6px; margin-top: 8px; flex-direction: column; align-items: stretch;}
 
 /* Modal: user picker */
 .cb-modal-backdrop {
