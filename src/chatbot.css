@@ -125,6 +125,7 @@
 .cb-presence.cb-online { background: var(--cb-badge); }
 .cb-icon-btn { background: transparent; border: 0; color: var(--cb-text); cursor: pointer; padding: 6px; border-radius: 8px; }
 .cb-icon-btn:hover { background: rgba(148,163,184,0.15); }
+.cb-msg-meta .cb-icon-btn {padding: 0;}
 
 /* Header-specific tooltip positioning: show below controls */
 .cb-header .cb-tooltip[data-tip]:not([data-tip=""]):hover::after {

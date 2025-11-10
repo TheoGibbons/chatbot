@@ -29,7 +29,9 @@ export class ChatbotWidget {
       presence: new Map(),
       typing: new Map(),
       lastSync: null,
-      unread: 0
+      unread: 0,
+      // Track inline edit state so we can preserve it across re-renders
+      editing: null // { messageId, conversationId, text }
     };
 
     this._buildUI();
@@ -256,7 +258,11 @@ export class ChatbotWidget {
       const ix = arr.findIndex(x => x.id === m.id);
       if (ix >= 0) {
         const prev = arr[ix];
-        arr[ix] = Object.assign({}, prev, m);
+        // Preserve in-progress edit text locally if this message is being edited
+        const isEditing = this.state.editing && this.state.editing.messageId === m.id;
+        const merged = Object.assign({}, prev, m);
+        if (isEditing) merged.text = prev.text; // keep local unsaved draft text in UI
+        arr[ix] = merged;
       } else { arr.push(m); if (m.authorId !== 'me') newMessages.push(m); }
       arr.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
       this.state.messages.set(m.conversationId, arr);
@@ -442,6 +448,10 @@ export class ChatbotWidget {
     const cid = this.state.activeId; if (!cid){ this.$thread.innerHTML = '<div style="padding:12px;color:var(--cb-muted);font:13px var(--cb-font)">No conversation selected</div>'; return; }
     const msgs = this.state.messages.get(cid) || [];
     this.$thread.innerHTML = '';
+
+    // We'll track if we need to focus the inline editor after render
+    let editorToFocus = null;
+
     for (const m of msgs){
       // Server-side/system message rendering
       if (m.type === 'server'){
@@ -460,7 +470,41 @@ export class ChatbotWidget {
       const avatarText = (isMe?'Me':(m.authorId||'U')).slice(0,2).toUpperCase();
       wrap.appendChild(h('div', { class: 'cb-avatar' }, avatarText));
       const bubble = h('div', { class: 'cb-bubble' });
-      bubble.appendChild(h('div', { class: 'cb-text' }, escapeHtml(m.text || '')));
+
+      const isEditing = !!(this.state.editing && this.state.editing.messageId === m.id);
+
+      if (!isEditing){
+        bubble.appendChild(h('div', { class: 'cb-text' }, escapeHtml(m.text || '')));
+      } else {
+        // Inline editor rendering
+        const current = (this.state.editing && this.state.editing.text != null) ? this.state.editing.text : (m.text || '');
+        const ta = h('div', { class: 'cb-input', contenteditable: 'true', style: 'min-height: 32px; margin-top: 6px;' }, escapeHtml(current));
+        ta.setAttribute('data-cb-editor', m.id);
+        ta.addEventListener('input', () => {
+          if (this.state.editing && this.state.editing.messageId === m.id){ this.state.editing.text = ta.textContent || ''; }
+        });
+        const btnSave = h('button', { class: 'cb-send-btn', style: 'margin-top:6px;' }, 'Save');
+        const btnCancel = h('button', { class: 'cb-icon-btn', style: 'margin-left:6px; margin-top:6px;' }, 'Cancel');
+        btnCancel.addEventListener('click', () => { this.state.editing = null; this._renderThread(); });
+        btnSave.addEventListener('click', async () => {
+          const newText = (ta.textContent||'').trim();
+          if (!newText || newText === m.text) { this.state.editing = null; this._renderThread(); return; }
+          const res = await this.api.editMessage(m.id, newText);
+          if (res?.ok){
+            const arr = this.state.messages.get(cid) || [];
+            const ix = arr.findIndex(x => x.id === m.id);
+            if (ix >= 0) arr[ix] = Object.assign({}, arr[ix], { text: newText, updatedAt: nowIso() });
+            this.state.messages.set(cid, arr);
+            this.emitter.emit('message', Object.assign({}, m, { text: newText }));
+          }
+          this.state.editing = null;
+          this._renderThread();
+        });
+        bubble.appendChild(ta);
+        bubble.appendChild(btnSave);
+        bubble.appendChild(btnCancel);
+        editorToFocus = ta;
+      }
 
       if (m.attachments?.length){
         const atts = h('div', { class: 'cb-attachments' });
@@ -474,13 +518,29 @@ export class ChatbotWidget {
       const meta = h('div', { class: 'cb-msg-meta' }, [
         h('span', {}, fmtTime(m.createdAt)),
         (m.seenBy?.length? h('span', { class: 'cb-tooltip', 'data-tip': m.seenBy.map(s => `${s.userId} at ${fmtTime(s.at)}`).join('\n') }, 'Seen by '+m.seenBy.map(s => s.userId).join(', ')) : ''),
-        (isMe ? h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', onclick: () => this._inlineEditMessage(m), type: 'button' }, this._iconEdit()) : '')
+        (!isEditing && isMe ? h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Edit', 'aria-label': 'Edit message', onclick: () => this._inlineEditMessage(m), type: 'button' }, this._iconEdit()) : '')
       ]);
       bubble.appendChild(meta);
       wrap.appendChild(bubble);
       this.$thread.appendChild(wrap);
     }
+
     if (scrollToEnd) this._scrollThreadToEnd();
+
+    // After rendering, if editing, focus the editor and move caret to end
+    if (editorToFocus){
+      setTimeout(() => {
+        try {
+          editorToFocus.focus();
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(editorToFocus);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (_) {}
+      }, 0);
+    }
   }
   _scrollThreadToEnd(){
     const el = this.$messages || this.$thread; if (!el) return;
@@ -759,28 +819,10 @@ export class ChatbotWidget {
   }
 
   _inlineEditMessage(m){
-    const cid = m.conversationId; const msgs = this.state.messages.get(cid) || [];
-    const idx = msgs.findIndex(x => x.id === m.id); if (idx<0) return;
-    const wrappers = this.$thread.querySelectorAll('.cb-msg');
-    const wrap = wrappers[idx]; if (!wrap) return;
-    const bubble = wrap.querySelector('.cb-bubble');
-    const textEl = bubble.querySelector('.cb-text');
-    const original = m.text;
-    const ta = h('div', { class: 'cb-input', contenteditable: 'true', style: 'min-height: 32px; margin-top: 6px;' }, escapeHtml(original));
-    const btnSave = h('button', { class: 'cb-send-btn', style: 'margin-top:6px;' }, 'Save');
-    const btnCancel = h('button', { class: 'cb-icon-btn', style: 'margin-left:6px; margin-top:6px;' }, 'Cancel');
-    const box = h('div', {}, [ta, btnSave, btnCancel]);
-    textEl.style.display = 'none';
-    bubble.insertBefore(box, bubble.lastChild);
-    const cleanup = () => { textEl.style.display = ''; box.remove(); };
-    btnCancel.addEventListener('click', cleanup);
-    btnSave.addEventListener('click', async () => {
-      const newText = (ta.textContent||'').trim();
-      if (!newText || newText === original) { cleanup(); return; }
-      const res = await this.api.editMessage(m.id, newText);
-      if (res?.ok){ msgs[idx].text = newText; this._renderThread(); }
-      cleanup();
-    });
+    // Activate editing state and re-render; this preserves edit mode across future re-renders
+    if (m.authorId !== 'me') return;
+    this.state.editing = { messageId: m.id, conversationId: m.conversationId, text: m.text || '' };
+    this._renderThread();
   }
 
   // Unread/read
@@ -869,3 +911,4 @@ export class ChatbotWidget {
   _iconCompress(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M9 3H3v6"/><path d="m3 3 7 7"/><path d="M15 21h6v-6"/><path d="m21 21-7-7"/>' ); }
   _iconMonitor(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>' ); }
 }
+
