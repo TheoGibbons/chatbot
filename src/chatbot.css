@@ -148,6 +148,7 @@
 /* Messages area */
 .cb-messages { display: flex; overflow-y: auto; flex-direction: column; height: 100%; }
 .cb-thread { flex: 1; padding: 12px; background: var(--cb-surface); }
+.cb-typing { background: var(--cb-surface); }
 .cb-msg { display: grid; grid-template-columns: 28px 1fr; gap: 8px; margin-bottom: 10px; }
 .cb-avatar { width: 28px; height: 28px; border-radius: 9999px; background: #cbd5e1; display: inline-flex; align-items: center; justify-content: center; font: 600 12px/1 var(--cb-font); color: #334155; }
 .cb-bubble { background: var(--cb-bg); border: 1px solid var(--cb-border); border-radius: 12px; padding: 8px 10px; }
