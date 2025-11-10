@@ -1,3 +1,9 @@
+# Demo (With Fake Backend)
+1) [Regular chatbot](https://theogibbons.github.io/chatbot/index.html) 
+2) [Full page](https://theogibbons.github.io/chatbot/fullpage.html) 
+3) [Embedded](https://theogibbons.github.io/chatbot/embedded.html) 
+
+
 # Chatbot Widget (Vanilla JS)
 
 A backend-agnostic, drop-in JavaScript chatbot widget that floats on the bottom-right of any website. Includes a zero-config demo mode so it works out-of-the-box from a Git clone.
