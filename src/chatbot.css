@@ -135,7 +135,7 @@
 }
 
 /* Body layout: sidebar (conversations) + messages */
-.cb-body { display: grid; grid-template-columns: 130px 1fr; min-height: 280px; flex-grow: 1; }
+.cb-body { display: grid; grid-template-columns: 130px 1fr; min-height: 280px; flex-grow: 1; background: var(--cb-surface); }
 @media (max-width: 640px) { .cb-body { grid-template-columns: 1fr; } .cb-sidebar { display: none; } }
 
 .cb-sidebar { border-right: 1px solid var(--cb-border); background: var(--cb-bg); overflow-y: auto; }
