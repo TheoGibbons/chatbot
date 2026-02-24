@@ -86,12 +86,12 @@
 }
 .cb-window.cb-open { display: flex; }
 .cb-window>:first-child {
-    border-top-left-radius: var(--cb-radius);
-    border-top-right-radius: var(--cb-radius);
+  border-top-left-radius: var(--cb-radius);
+  border-top-right-radius: var(--cb-radius);
 }
 .cb-window>:last-child {
-    border-bottom-left-radius: var(--cb-radius);
-    border-bottom-right-radius: var(--cb-radius);
+  border-bottom-left-radius: var(--cb-radius);
+  border-bottom-right-radius: var(--cb-radius);
 }
 
 /* Fullscreen (within page) mode */
@@ -139,6 +139,7 @@
 .cb-body { display: grid; grid-template-columns: 130px 1fr; min-height: 280px; flex-grow: 1; background: var(--cb-surface); }
 @media (max-width: 640px) { .cb-body { grid-template-columns: 1fr; } .cb-sidebar { display: none; } }
 
+.cb-mode-page .cb-sidebar { border-left: 1px solid var(--cb-border); }
 .cb-sidebar { border-right: 1px solid var(--cb-border); background: var(--cb-bg); overflow-y: auto; }
 .cb-convo-item { padding: 10px; border-bottom: 1px solid var(--cb-border); cursor: pointer; }
 .cb-convo-item:hover { background: rgba(148,163,184,0.12); }
@@ -180,12 +181,12 @@
 .cb-composer {
   border-top: 1px solid var(--cb-border);
   padding: 8px;
-  background: var(--cb-bg);
+  background: var(--cb-surface);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.cb-input { min-height: 36px; max-height: 120px; overflow: auto; border: 1px solid var(--cb-border); border-radius: 10px; padding: 8px 10px; font: 13px/1.4 var(--cb-font); outline: none; background: var(--cb-surface); }
+.cb-input { min-height: 36px; max-height: 120px; overflow: auto; border: 1px solid var(--cb-border); border-radius: 10px; padding: 8px 10px; font: 13px/1.4 var(--cb-font); outline: none; background: var(--cb-surface);background: var(--cb-bg); }
 .cb-input:empty:before { content: attr(data-placeholder); color: var(--cb-muted); }
 .cb-actions { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
 .cb-checkboxes { display: flex; align-items: center; gap: 10px; font: 12px/1 var(--cb-font); color: var(--cb-text); flex-wrap: wrap; }

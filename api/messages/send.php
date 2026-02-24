@@ -35,7 +35,7 @@ echo json_encode([
         'id'             => 'm_demo_1',
         'conversationId' => 'c_general',
         'authorId'       => 'me',
-        'text'           => 'Hello from PHP demo',
+        'text'           => $text,
         'createdAt'      => $now,
         'updatedAt'      => $now,
         'attachments'    => [],
