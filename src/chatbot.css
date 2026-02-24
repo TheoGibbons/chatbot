@@ -82,6 +82,8 @@
   box-shadow: var(--cb-elev);
   display: none;
   flex-direction: column;
+}
+.cb-window:not(.cb-mode-page) {
   z-index: var(--cb-z);
 }
 .cb-window.cb-open { display: flex; }
