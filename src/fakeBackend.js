@@ -10,13 +10,13 @@ export class FakeBackend {
       { id: 'u_jamie', name: 'Jamie', online: true },
     ];
     this.conversations = [
-      { id: 'c_general', name: 'General', participants: ['me','u_alex','u_jamie'], createdAt: nowIso(), updatedAt: nowIso(), replyHint: 'We reply in minutes' },
-      { id: 'c_support', name: 'Support', participants: ['me','u_sam'], createdAt: nowIso(), updatedAt: nowIso(), replyHint: '' },
+      { id: 'c_general', name: 'General', participants: {'me':'You','u_alex':'Alex','u_jamie':'Jamie'}, createdAt: nowIso(), updatedAt: nowIso(), replyHint: 'We reply in minutes' },
+      { id: 'c_support', name: 'Support', participants: {'me':'You','u_sam':'Sam'}, createdAt: nowIso(), updatedAt: nowIso(), replyHint: '' },
     ];
     const iso = nowIso();
     this.messages = [
-      { id: uid(), conversationId: 'c_general', authorId: 'u_alex', text: 'Welcome to the demo! 🎉', createdAt: iso, updatedAt: iso, attachments: [], channels: {sms:false,whatsapp:true,email:false}, seenBy: [{userId:'me', at: iso}] },
-      { id: uid(), conversationId: 'c_support', authorId: 'u_sam', text: 'How can I help?', createdAt: iso, updatedAt: iso, attachments: [], channels: {sms:true,whatsapp:false,email:true}, seenBy: [] },
+      { id: uid(), conversationId: 'c_general', authorId: 'u_alex', authorName: 'Alex', text: 'Welcome to the demo! 🎉', createdAt: iso, updatedAt: iso, attachments: [], channels: {sms:false,whatsapp:true,email:false}, seenBy: [{userId:'me', displayName:'You', at: iso}] },
+      { id: uid(), conversationId: 'c_support', authorId: 'u_sam', authorName: 'Sam', text: 'How can I help?', createdAt: iso, updatedAt: iso, attachments: [], channels: {sms:true,whatsapp:false,email:true}, seenBy: [] },
     ];
     this.drafts = new Map(); // key: conversationId -> { text, attachments }
     this.typing = new Map(); // key: conversationId -> { [userId]: untilTs }
@@ -44,7 +44,7 @@ export class FakeBackend {
   async sendMessage({ conversationId, text, attachments, channels, scheduleAt }){
     await sleep(250 + Math.random()*400);
     const iso = scheduleAt ? new Date(scheduleAt).toISOString() : nowIso();
-    const msg = { id: uid(), conversationId, authorId: 'me', text, createdAt: iso, updatedAt: iso, attachments: attachments||[], channels: channels||{}, seenBy: [] };
+    const msg = { id: uid(), conversationId, authorId: 'me', authorName: 'You', text, createdAt: iso, updatedAt: iso, attachments: attachments||[], channels: channels||{}, seenBy: [] };
     this.messages.push(msg);
     const convo = this.conversations.find(c => c.id === conversationId);
     if (convo){ convo.updatedAt = iso; this._touch(); }
@@ -52,7 +52,7 @@ export class FakeBackend {
     const until = Date.now() + 1500 + Math.floor(Math.random()*1500);
     const tmap = this.typing.get(conversationId) || {}; tmap[typer] = until; this.typing.set(conversationId, tmap); this._touch();
     setTimeout(() => {
-      const reply = { id: uid(), conversationId, authorId: 'u_alex', text: 'Auto-reply (demo): '+(Math.random()<0.5?'👍':'Got it!'), createdAt: nowIso(), updatedAt: nowIso(), attachments: [], channels: { sms: false, whatsapp: true, email: false }, seenBy: [] };
+      const reply = { id: uid(), conversationId, authorId: 'u_alex', authorName: 'Alex', text: 'Auto-reply (demo): '+(Math.random()<0.5?'👍':'Got it!'), createdAt: nowIso(), updatedAt: nowIso(), attachments: [], channels: { sms: false, whatsapp: true, email: false }, seenBy: [] };
       this.messages.push(reply);
       const c = this.conversations.find(x => x.id === conversationId); if (c){ c.updatedAt = nowIso(); this._touch(); }
     }, 800 + Math.random()*1500);
@@ -103,20 +103,44 @@ export class FakeBackend {
     const id = 'c_' + uid();
     const name = 'Chat with ' + participants.filter(x => x !== 'me').map(x => this.users.find(u => u.id===x)?.name || x).join(', ');
     const iso = nowIso();
-    const convo = { id, name, participants: Array.from(new Set(['me', ...participants])), createdAt: iso, updatedAt: iso };
+    const pIds = Array.from(new Set(['me', ...participants]));
+    const pObj = {};
+    for (const pid of pIds) {
+      const u = this.users.find(u => u.id === pid);
+      pObj[pid] = u ? u.name : pid;
+    }
+    const convo = { id, name, participants: pObj, createdAt: iso, updatedAt: iso };
     this.conversations.push(convo);
     this._touch();
     return { ok: true, conversation: convo };
   }
+  async deleteConversation({ conversationId }){
+    const idx = this.conversations.findIndex(x => x.id === conversationId);
+    if (idx < 0) return { ok: false, error: 'not_found' };
+    this.conversations.splice(idx, 1);
+    this.messages = this.messages.filter(m => m.conversationId !== conversationId);
+    this.drafts.delete(conversationId);
+    this.typing.delete(conversationId);
+    this._touch();
+    return { ok: true };
+  }
+  async canDeleteConversation({ conversationId }){
+    const exists = this.conversations.some(x => x.id === conversationId);
+    return { ok: true, can: exists };
+  }
+  async canAddParticipant({ conversationId }){
+    const exists = this.conversations.some(x => x.id === conversationId);
+    return { ok: true, can: exists };
+  }
   async addParticipant({ conversationId, userId }){
     const c = this.conversations.find(x => x.id === conversationId); if (!c) return { ok:false };
-    if (!c.participants.includes(userId)) c.participants.push(userId);
+    if (!c.participants[userId]) { const u = this.users.find(u => u.id === userId); c.participants[userId] = u ? u.name : userId; }
     c.updatedAt = nowIso(); this._touch();
     return { ok: true };
   }
   async removeParticipant({ conversationId, userId }){
     const c = this.conversations.find(x => x.id === conversationId); if (!c) return { ok:false };
-    c.participants = c.participants.filter(x => x !== userId);
+    delete c.participants[userId];
     c.updatedAt = nowIso(); this._touch();
     return { ok: true };
   }
@@ -125,7 +149,7 @@ export class FakeBackend {
     for (const m of this.messages) {
       if (m.conversationId === conversationId && messageIds.includes(m.id)) {
         const has = m.seenBy.find(s => s.userId === 'me');
-        if (!has) m.seenBy.push({ userId: 'me', at: iso }); else has.at = iso;
+        if (!has) m.seenBy.push({ userId: 'me', displayName: 'You', at: iso }); else has.at = iso;
         m.updatedAt = iso;
       }
     }
@@ -144,7 +168,7 @@ export class FakeBackend {
   }
   async addServerMessage({ conversationId, text }){
     const iso = nowIso();
-    const msg = { id: uid(), conversationId, authorId: 'server', type: 'server', text, createdAt: iso, updatedAt: iso, attachments: [], channels: {}, seenBy: [] };
+    const msg = { id: uid(), conversationId, authorId: 'server', authorName: 'System', type: 'server', text, createdAt: iso, updatedAt: iso, attachments: [], channels: {}, seenBy: [] };
     this.messages.push(msg);
     const c = this.conversations.find(x => x.id === conversationId); if (c){ c.updatedAt = iso; this._touch(); }
     return { ok: true, message: msg };

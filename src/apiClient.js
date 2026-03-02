@@ -77,6 +77,24 @@ export class ApiClient {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ participants }), credentials: 'include' });
     return res.json();
   }
+  async deleteConversation(conversationId){
+    if (this.demo) return this.demo.deleteConversation({ conversationId });
+    const url = this._requireUrl('deleteConversation');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId }), credentials: 'include' });
+    return res.json();
+  }
+  async canDeleteConversation(conversationId){
+    if (this.demo) return this.demo.canDeleteConversation({ conversationId });
+    const url = this._requireUrl('canDeleteConversation');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId }), credentials: 'include' });
+    return res.json();
+  }
+  async canAddParticipant(conversationId){
+    if (this.demo) return this.demo.canAddParticipant({ conversationId });
+    const url = this._requireUrl('canAddParticipant');
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId }), credentials: 'include' });
+    return res.json();
+  }
   async addParticipant(conversationId, userId){
     if (this.demo) return this.demo.addParticipant({ conversationId, userId });
     const url = this._requireUrl('addParticipant');

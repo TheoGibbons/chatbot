@@ -18,7 +18,12 @@
 
 header('Content-Type: application/json');
 
-// POST /api/messages/send
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  http_response_code(405);
+  echo json_encode([ 'ok' => false, 'error' => 'method_not_allowed' ]);
+  exit;
+}
+
 $now = gmdate('c');
 
 $raw = file_get_contents('php://input');

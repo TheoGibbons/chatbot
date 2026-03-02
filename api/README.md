@@ -10,6 +10,9 @@ Messages
 - GET /api/messages/index.php?since={timestamp}
 - POST /api/messages/send.php
 - POST /api/messages/edit.php  (body: { id, newText })
+- POST /api/messages/delete.php (body: { id })
+- POST /api/messages/canEdit.php (body: { id })
+- POST /api/messages/canDelete.php (body: { id })
 - POST /api/messages/draft.php (body: { conversationId, text, attachments })
 - GET  /api/messages/draft.php?conversationId={conversationId}
 - POST /api/messages/markAsRead.php (body: { conversationId, messageIds })
@@ -21,6 +24,8 @@ Conversations
 - POST /api/conversations/start.php (body: { participants: string[] })
 - POST /api/conversations/addParticipant.php (body: { conversationId, userId })
 - POST /api/conversations/removeParticipant.php (body: { conversationId, userId })
+- POST /api/conversations/delete.php (body: { conversationId })
+- POST /api/conversations/canAddParticipant.php (body: { conversationId })
 
 Users
 - GET /api/users/search.php?q=...
@@ -39,9 +44,14 @@ Example minimal config:
       "listMessages": "/api/messages/index.php?since={timestamp}",
       "sendMessage": "/api/messages/send.php",
       "editMessage": "/api/messages/edit.php",
+      "deleteMessage": "/api/messages/delete.php",
+      "canEditMessage": "/api/messages/canEdit.php",
+      "canDeleteMessage": "/api/messages/canDelete.php",
       "uploadFile": "/api/files/upload.php",
       "searchUsers": "/api/users/search.php?q={query}",
       "startConversation": "/api/conversations/start.php",
+      "deleteConversation": "/api/conversations/delete.php",
+      "canAddParticipant": "/api/conversations/canAddParticipant.php",
       "addParticipant": "/api/conversations/addParticipant.php",
       "removeParticipant": "/api/conversations/removeParticipant.php",
       "saveDraft": "/api/messages/draft.php",

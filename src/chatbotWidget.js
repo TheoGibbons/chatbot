@@ -33,6 +33,9 @@ export class ChatbotWidget {
       // Track inline edit state so we can preserve it across re-renders
       editing: null // { messageId, conversationId, text }
     };
+    this._deleteConvoCheckToken = 0;
+    this._addParticipantCheckToken = 0;
+    this._canAddParticipant = false;
 
     this._buildUI();
     this._applyTheme();
@@ -65,10 +68,10 @@ export class ChatbotWidget {
         h('div', { class: 'cb-subtitle', id: 'cb-subtitle', style: 'display:none' }, '')
       ]),
       h('div', { class: 'cb-spacer' }),
-      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users', type: 'button' }, this._iconUsers()),
-      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'New conversation', 'aria-label': 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations? '' : 'display:none'), type: 'button' }, this._iconPlus()),
+      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Participants', 'aria-label': 'Participants', id: 'cb-users', type: 'button', style: '' }, this._iconUsers()),
+      h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'New conversation', 'aria-label': 'New conversation', id: 'cb-new', style: (this.settings.canStartMultipleConversations ? '' : 'display:none'), type: 'button' }, this._iconPlus()),
+      h('button', { class: 'cb-icon-btn cb-tooltip cb-delete-convo-btn', 'data-tip': 'Delete conversation', 'aria-label': 'Delete conversation', id: 'cb-delete-convo', style: '', type: 'button' }, this._iconTrash(16)),
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Theme', 'aria-label': 'Theme', id: 'cb-theme', type: 'button' }, this._iconSun()),
-      // Fullscreen & Close hidden in page mode (already full) but kept in embedded in case host wants expansion
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': 'Fullscreen', 'aria-label': 'Fullscreen', id: 'cb-full', type: 'button', style: (isPage?'display:none':'') }, this._iconExpand()),
       h('button', { class: 'cb-icon-btn cb-tooltip', 'data-tip': isWidget? 'Close' : 'Hide', 'aria-label': isWidget? 'Close' : 'Hide', id: 'cb-close', type: 'button', style: (!isWidget && !isEmbedded ? 'display:none' : '') }, this._iconX())
     ]);
@@ -105,15 +108,9 @@ export class ChatbotWidget {
     const fileInput = this.$fileInput = h('input', { type: 'file', multiple: '', style: 'display:none' });
 
     const sendNowBtn = h('button', { class: 'cb-send-btn cb-tooltip', 'aria-label': 'Send', id: 'cb-send', type: 'button' }, 'Send');
-    const ddWrap = h('div', { class: 'cb-dropdown' });
-    const ddBtn = h('button', { class: 'cb-icon-btn', id: 'cb-dd', type: 'button' }, this._iconChevronUp());
-    const menu = this.$menu = h('div', { class: 'cb-menu' }, [
-      h('button', { id: 'cb-now', type: 'button' }, 'Send now'),
-      h('button', { id: 'cb-sched', type: 'button' }, 'Schedule…')
-    ]);
-    ddWrap.appendChild(ddBtn); ddWrap.appendChild(menu);
+    this.$menu = null;
 
-    const send = h('div', { class: 'cb-send' }, [ sendNowBtn, ddWrap ]);
+    const send = h('div', { class: 'cb-send' }, [ sendNowBtn ]);
 
     composer.appendChild(checkboxes);
     actions.appendChild(fileBtn);
@@ -137,6 +134,15 @@ export class ChatbotWidget {
     } else {
       document.body.appendChild(this.$win);
     }
+
+    this._initTooltipPortal();
+  }
+
+  _initTooltipPortal(){
+    if (this.$tooltip) return;
+    this.$tooltip = h('div', { class: 'cb-tooltip-portal', role: 'tooltip', style: 'display:none' });
+    document.body.appendChild(this.$tooltip);
+    this.$win.classList.add('cb-tooltips-portal');
   }
 
   _applyTheme(){
@@ -179,6 +185,9 @@ export class ChatbotWidget {
     const newBtn = this.$header.querySelector('#cb-new');
     if (newBtn) newBtn.addEventListener('click', () => this._openUserPicker({ mode: 'start' }));
 
+    const deleteConvoBtn = this.$header.querySelector('#cb-delete-convo');
+    if (deleteConvoBtn) deleteConvoBtn.addEventListener('click', () => this._confirmDeleteConversation());
+
     const usersBtn = this.$header.querySelector('#cb-users');
     if (usersBtn){
       const show = () => this._showParticipantsPopover(usersBtn);
@@ -195,23 +204,40 @@ export class ChatbotWidget {
     const sendBtn = this.$actions.querySelector('#cb-send');
     if (sendBtn) sendBtn.addEventListener('click', () => this._sendNow());
 
-    const ddBtn = this.$actions.querySelector('#cb-dd');
-    if (ddBtn && this.$menu){
-      ddBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.$menu.classList.toggle('open');
-      });
-      const nowItem = this.$menu.querySelector('#cb-now');
-      const schedItem = this.$menu.querySelector('#cb-sched');
-      if (nowItem) nowItem.addEventListener('click', () => { this.$menu.classList.remove('open'); this._sendNow(); });
-      if (schedItem) schedItem.addEventListener('click', () => { this.$menu.classList.remove('open'); this._openSchedulePicker(); });
-      document.addEventListener('click', () => { this.$menu.classList.remove('open'); });
-    }
+
+    this.$win.addEventListener('mouseover', (e) => {
+      const target = e.target.closest?.('.cb-tooltip[data-tip]');
+      if (!target || !this.$win.contains(target)) return;
+      if (!target.getAttribute('data-tip')) return;
+      this._showTooltip(target);
+    });
+    this.$win.addEventListener('mouseout', (e) => {
+      const target = e.target.closest?.('.cb-tooltip[data-tip]');
+      if (!target || !this.$win.contains(target)) return;
+      if (target.contains(e.relatedTarget)) return;
+      this._hideTooltip();
+    });
+    this.$win.addEventListener('focusin', (e) => {
+      const target = e.target.closest?.('.cb-tooltip[data-tip]');
+      if (!target || !this.$win.contains(target)) return;
+      if (!target.getAttribute('data-tip')) return;
+      this._showTooltip(target);
+    });
+    this.$win.addEventListener('focusout', (e) => {
+      const target = e.target.closest?.('.cb-tooltip[data-tip]');
+      if (!target || !this.$win.contains(target)) return;
+      this._hideTooltip();
+    });
+    const hideTooltipOnScroll = () => this._hideTooltip();
+    if (this.$messages) this.$messages.addEventListener('scroll', hideTooltipOnScroll);
+    window.addEventListener('scroll', hideTooltipOnScroll, true);
+    window.addEventListener('resize', hideTooltipOnScroll);
 
     if (this.$input){
       this.$input.addEventListener('input', () => this._onDraftChanged());
       this.$input.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this._sendNow(); }
+        if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey || e.shiftKey)) { e.preventDefault(); this._sendNow(); }
+        else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); document.execCommand('insertLineBreak'); }
       });
     }
 
@@ -229,12 +255,60 @@ export class ChatbotWidget {
     else if (mqlTheme.addListener) mqlTheme.addListener(onMqlChange);
   }
 
+  _showTooltip(target){
+    if (!this.$tooltip) return;
+    const tip = target?.getAttribute?.('data-tip');
+    if (!tip) return;
+    this._tooltipTarget = target;
+    this.$tooltip.textContent = tip;
+    this.$tooltip.style.display = 'block';
+    this._positionTooltip(target);
+  }
+
+  _hideTooltip(){
+    if (!this.$tooltip) return;
+    this._tooltipTarget = null;
+    this.$tooltip.style.display = 'none';
+  }
+
+  _positionTooltip(target){
+    if (!this.$tooltip || !target) return;
+    const tip = target.getAttribute('data-tip');
+    if (!tip) return;
+    const tooltip = this.$tooltip;
+    tooltip.style.left = '0px';
+    tooltip.style.top = '0px';
+    const rect = target.getBoundingClientRect();
+    const tRect = tooltip.getBoundingClientRect();
+    const gap = 6;
+    const margin = 8;
+    let placement = target.closest('.cb-header') ? 'bottom' : 'top';
+    let top = placement === 'bottom' ? rect.bottom + gap : rect.top - tRect.height - gap;
+    if (top < margin){
+      placement = 'bottom';
+      top = rect.bottom + gap;
+    }
+    if (top + tRect.height > window.innerHeight - margin){
+      placement = 'top';
+      top = rect.top - tRect.height - gap;
+    }
+    let left = rect.right - tRect.width;
+    left = Math.min(Math.max(left, margin), window.innerWidth - tRect.width - margin);
+    top = Math.min(Math.max(top, margin), window.innerHeight - tRect.height - margin);
+    tooltip.style.left = Math.round(left) + 'px';
+    tooltip.style.top = Math.round(top) + 'px';
+    tooltip.setAttribute('data-placement', placement);
+  }
+
   async _start(){
     await this._fullSync();
     this._renderConversations();
     this._selectFirstConversation();
+
     this._updateUnreadBadge();
     this._updateSendDisabled();
+    this._updateDeleteConversationPermission();
+    this._updateAddParticipantPermission();
     this._startPolling();
   }
 
@@ -282,6 +356,8 @@ export class ChatbotWidget {
     this._renderTyping();
     this._renderPresence();
     this._updateSubtitle();
+    this._updateDeleteConversationPermission();
+    this._updateAddParticipantPermission();
 
     for (const c of newConvos) this.emitter.emit('conversation', c);
     for (const m of newMessages) this.emitter.emit('message', m);
@@ -302,28 +378,36 @@ export class ChatbotWidget {
   }
 
   // Participants popover and user picker
-  _showParticipantsPopover(btn){
+  async _showParticipantsPopover(btn){
     const cid = this.state.activeId; if (!cid) return;
+    await this._updateAddParticipantPermission();
+    const canManage = !!this._canAddParticipant;
     this._hideParticipantsPopover();
     const pop = this.$participantsPopover = h('div', { class: 'cb-popover' });
     const c = this.state.conversations.find(x => x.id === cid);
     pop.appendChild(h('h4', {}, 'Participants'));
     const list = h('div', { class: 'cb-pop-list' });
-    const others = (c?.participants||[]).filter(u => u !== 'me');
-    if (!others.length) list.appendChild(h('div', { style: 'color:var(--cb-muted);font:12px var(--cb-font);' }, 'No other participants'));
-    for (const uid_ of others){
-      const name = uid_;
-      const row = h('div', { class: 'cb-pop-item' }, [
-        h('span', {}, escapeHtml(name)),
-        h('button', { class: 'cb-icon-btn', 'aria-label': 'Remove participant', onclick: (e) => { e.stopPropagation(); this.api.removeParticipant(cid, uid_).then(r => { if (r?.ok){ c.participants = c.participants.filter(x => x!==uid_); this._renderPresence(); this._hideParticipantsPopover(); this._showParticipantsPopover(btn); } }); } }, this._iconX(14))
-      ]);
+    const entries = Object.entries(c?.participants || {});
+    if (!entries.length) list.appendChild(h('div', { style: 'color:var(--cb-muted);font:12px var(--cb-font);' }, 'No participants'));
+    for (const [uid_, displayName] of entries){
+      const name = displayName || uid_;
+      const isMe = uid_ === 'me';
+      const rowChildren = [h('span', {}, escapeHtml(name))];
+      if (!isMe && canManage) {
+        rowChildren.push(
+          h('button', { class: 'cb-icon-btn', 'aria-label': 'Remove participant', onclick: (e) => { e.stopPropagation(); this.api.removeParticipant(cid, uid_).then(r => { if (r?.ok){ delete c.participants[uid_]; this._renderPresence(); this._hideParticipantsPopover(); this._showParticipantsPopover(btn); } }); } }, this._iconX(14))
+        );
+      }
+      const row = h('div', { class: 'cb-pop-item' }, rowChildren);
       list.appendChild(row);
     }
     pop.appendChild(list);
-    const actions = h('div', { class: 'cb-pop-actions' }, [
-      h('button', { class: 'cb-icon-btn', 'aria-label': 'Add participant', onclick: (e) => { e.stopPropagation(); this._hideParticipantsPopover(); this._openUserPicker({ mode: 'add' }); } }, this._iconPlus(16))
-    ]);
-    pop.appendChild(actions);
+    if (canManage){
+      const actions = h('div', { class: 'cb-pop-actions' }, [
+        h('button', { class: 'cb-icon-btn', 'aria-label': 'Add participant', onclick: (e) => { e.stopPropagation(); this._hideParticipantsPopover(); this._openUserPicker({ mode: 'add' }); } }, this._iconPlus(16))
+      ]);
+      pop.appendChild(actions);
+    }
 
     // Positioning near the users button
     document.body.appendChild(pop);
@@ -369,7 +453,7 @@ export class ChatbotWidget {
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
 
     const cid = this.state.activeId;
-    const existing = isAdd ? (this.state.conversations.find(x => x.id===cid)?.participants || []) : [];
+    const existing = isAdd ? Object.keys(this.state.conversations.find(x => x.id===cid)?.participants || {}) : [];
 
     const renderOptions = (items=[]) => {
       select.innerHTML = '';
@@ -400,7 +484,7 @@ export class ChatbotWidget {
       try {
         if (isAdd) {
           await this.api.addParticipant(cid, userId);
-          const c = this.state.conversations.find(x => x.id===cid); if (c && !c.participants.includes(userId)) c.participants.push(userId);
+          const c = this.state.conversations.find(x => x.id===cid); if (c && !c.participants[userId]) c.participants[userId] = select.selectedOptions[0]?.textContent || userId;
           this._renderPresence();
         } else {
           const r = await this.api.startConversation([userId]);
@@ -410,6 +494,8 @@ export class ChatbotWidget {
               this._renderConversations();
               this._renderThread(true);
               this._saveDraft();
+              this._updateDeleteConversationPermission();
+              this._updateAddParticipantPermission();
               this.emitter.emit('conversation', r.conversation);
             }
         }
@@ -438,13 +524,16 @@ export class ChatbotWidget {
         this._updateUnreadBadge();
         this._renderPresence();
         this._updateSendDisabled();
+        this._updateDeleteConversationPermission();
+        this._updateAddParticipantPermission();
         this._hideParticipantsPopover();
         this._updateSubtitle();
       });
       this.$sidebar.appendChild(el);
     }
-    const showSidebar = this.state.conversations.length > 1;
-    this.$sidebar.style.display = showSidebar ? 'block' : 'none';
+      const showSidebar = this.state.conversations.length > 1;
+      this.$sidebar.style.display = showSidebar ? 'block' : 'none';
+      if (this.$body) this.$body.classList.toggle('cb-has-sidebar', showSidebar);
     // Update subtitle if active conversation changed due to sorting/render
     this._updateSubtitle();
   }
@@ -454,6 +543,8 @@ export class ChatbotWidget {
       this._renderThread(true);
       this._loadDraft();
       this._updateSendDisabled();
+      this._updateDeleteConversationPermission();
+      this._updateAddParticipantPermission();
       this._updateSubtitle();
     }
   }
@@ -482,9 +573,14 @@ export class ChatbotWidget {
 
       const isMe = m.authorId === 'me';
       const wrap = h('div', { class: 'cb-msg'+(isMe?' cb-me':'') });
-      const avatarText = (isMe?'Me':(m.authorId||'U')).slice(0,2).toUpperCase();
+      const avatarText = isMe ? 'Me' : this._initials(m.authorName || m.authorId || 'U');
       wrap.appendChild(h('div', { class: 'cb-avatar' }, avatarText));
       const bubble = h('div', { class: 'cb-bubble' });
+
+      // Show author name for non-self messages
+      if (!isMe && m.authorName && m.authorName !== m.authorId) {
+        bubble.appendChild(h('div', { class: 'cb-author-name' }, escapeHtml(m.authorName)));
+      }
 
       const isEditing = !!(this.state.editing && this.state.editing.messageId === m.id);
 
@@ -540,7 +636,7 @@ export class ChatbotWidget {
 
       const meta = h('div', { class: 'cb-msg-meta' }, [
         h('span', {}, fmtTime(m.createdAt)),
-        (m.seenBy?.length? h('span', { class: 'cb-tooltip', 'data-tip': m.seenBy.map(s => `${s.userId} at ${fmtTime(s.at)}`).join('\n') }, 'Seen by '+m.seenBy.map(s => s.userId).join(', ')) : ''),
+        (isMe ? this._renderTicks(m) : ''),
         (!isEditing && isMe ? this._renderEditDeleteControls(m) : '')
       ]);
       bubble.appendChild(meta);
@@ -588,7 +684,7 @@ export class ChatbotWidget {
     if (cid){
       const c = this.state.conversations.find(x => x.id === cid);
       if (c){
-        for (const uid_ of c.participants || []){
+        for (const uid_ of Object.keys(c.participants || {})){
           if (uid_ !== 'me' && this.state.presence.get(uid_)) { online = true; break; }
         }
       }
@@ -707,6 +803,28 @@ export class ChatbotWidget {
     btn.setAttribute('data-tip', tip);
     btn.setAttribute('aria-label', tip);
     btn.classList.add('cb-tooltip');
+
+    // Disable/enable the message input when no conversation is selected
+    if (this.$input){
+      this.$input.contentEditable = notReady ? 'false' : 'true';
+      this.$input.classList.toggle('cb-disabled', notReady);
+      if (notReady){
+        this.$input.setAttribute('data-placeholder', 'Select a conversation to start messaging');
+      } else {
+        this.$input.setAttribute('data-placeholder', 'Write a message\u2026');
+      }
+    }
+
+    // Disable/enable the attach files button when no conversation is selected
+    const attachBtn = this.$actions.querySelector('#cb-attach');
+    if (attachBtn){
+      attachBtn.disabled = notReady;
+      if (notReady){
+        attachBtn.setAttribute('data-tip', 'Select a conversation first');
+      } else {
+        attachBtn.setAttribute('data-tip', 'Attach files');
+      }
+    }
   }
 
   // Send & schedule
@@ -811,7 +929,7 @@ export class ChatbotWidget {
     const attachments = draft.attachments || [];
     const optimisticId = 'temp_'+uid();
     const createdAt = scheduleIn || 0;
-    const optimistic = { id: optimisticId, conversationId: cid, authorId: 'me', text, createdAt, updatedAt: createdAt, attachments, channels, seenBy: [] };
+    const optimistic = { id: optimisticId, conversationId: cid, authorId: 'me', authorName: 'You', text, createdAt, updatedAt: createdAt, attachments, channels, seenBy: [] };
     const arr = this.state.messages.get(cid) || []; arr.push(optimistic); this.state.messages.set(cid, arr);
     this._renderThread(true);
 
@@ -870,11 +988,47 @@ export class ChatbotWidget {
     if (!unreadIds.length) return;
     const res = await this.api.markAsRead(cid, unreadIds);
     if (res?.ok){
-      for (const m of msgs){ if (unreadIds.includes(m.id)) { const has = m.seenBy?.find(s=>s.userId==='me'); if (has) has.at=nowIso(); else (m.seenBy||(m.seenBy=[])).push({ userId:'me', at: nowIso() }); } }
+      for (const m of msgs){ if (unreadIds.includes(m.id)) { const has = m.seenBy?.find(s=>s.userId==='me'); if (has) has.at=nowIso(); else (m.seenBy||(m.seenBy=[])).push({ userId:'me', displayName:'You', at: nowIso() }); } }
       this._renderThread();
       this._updateUnreadBadge();
       this.emitter.emit('read', { conversationId: cid, messageIds: unreadIds });
     }
+  }
+
+  _initials(name){
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+    return name.slice(0,2).toUpperCase();
+  }
+
+  // WhatsApp-style ticks: ✓ sent, ✓✓ delivered, ✓✓ blue = read by all
+  _renderTicks(m){
+    const seenBy = m.seenBy || [];
+    const othersSeen = seenBy.filter(s => s.userId !== 'me');
+    // Get conversation participants to determine "read by all"
+    const convo = this.state.conversations.find(c => c.id === m.conversationId);
+    const participantIds = convo ? Object.keys(convo.participants || {}).filter(k => k !== 'me') : [];
+    const allRead = participantIds.length > 0 && participantIds.every(pid => othersSeen.some(s => s.userId === pid));
+
+    let tickClass, tickText;
+    if (allRead) {
+      // All participants have read — double blue ticks
+      tickClass = 'cb-ticks cb-ticks-read';
+      tickText = '✓✓';
+    } else if (othersSeen.length > 0) {
+      // At least one other person saw it — double grey ticks (delivered)
+      tickClass = 'cb-ticks cb-ticks-delivered';
+      tickText = '✓✓';
+    } else {
+      // Just sent — single grey tick
+      tickClass = 'cb-ticks cb-ticks-sent';
+      tickText = '✓';
+    }
+    // Build tooltip showing who has seen it
+    const tipParts = seenBy.map(s => `${s.displayName || s.userId} at ${fmtTime(s.at)}`);
+    const tip = tipParts.length ? tipParts.join('\n') : 'Sent';
+    return h('span', { class: tickClass + ' cb-tooltip', 'data-tip': tip }, tickText);
   }
 
   _renderEditDeleteControls(m){
@@ -920,12 +1074,145 @@ export class ChatbotWidget {
     }
   }
 
+  // Delete conversation
+  async _confirmDeleteConversation(){
+    const cid = this.state.activeId;
+    if (!cid) return;
+    try {
+      const perm = await this.api.canDeleteConversation(cid);
+      if (!perm?.can){
+        alert('Only staff can delete conversations.');
+        return;
+      }
+    } catch (e){
+      alert('Cannot delete conversation.');
+      return;
+    }
+    const convo = this.state.conversations.find(c => c.id === cid);
+    const name = convo?.name || 'this conversation';
+    // Show a modal-style confirmation
+    const backdrop = h('div', { class: 'cb-modal-backdrop' });
+    const modal = h('div', { class: 'cb-modal' });
+    modal.appendChild(h('h3', {}, 'Delete conversation'));
+    modal.appendChild(h('p', { style: 'font: 13px/1.5 var(--cb-font); color: var(--cb-text); margin: 8px 0 16px;' },
+      `Are you sure you want to delete "${escapeHtml(name)}"? This will remove all messages and cannot be undone.`));
+    const footer = h('div', { class: 'footer' });
+    const cancelBtn = h('button', { class: 'cb-icon-btn', style: 'padding: 6px 12px;' }, 'Cancel');
+    const deleteBtn = h('button', { class: 'cb-send-btn', style: 'background: #ef4444;' }, 'Delete');
+    footer.appendChild(cancelBtn);
+    footer.appendChild(deleteBtn);
+    modal.appendChild(footer);
+    backdrop.appendChild(modal);
+    this.$win.appendChild(backdrop);
+    cancelBtn.addEventListener('click', () => backdrop.remove());
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.remove(); });
+    deleteBtn.addEventListener('click', async () => {
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting…';
+      await this._deleteConversation(cid);
+      backdrop.remove();
+    });
+  }
+
+  async _deleteConversation(conversationId){
+    try {
+      const res = await this.api.deleteConversation(conversationId);
+      if (res?.ok){
+        // Remove from state
+        this.state.conversations = this.state.conversations.filter(c => c.id !== conversationId);
+        this.state.messages.delete(conversationId);
+        this.state.drafts.delete(conversationId);
+        // If the deleted conversation was active, select another one
+        if (this.state.activeId === conversationId){
+          this.state.activeId = this.state.conversations.length ? this.state.conversations[0].id : null;
+        }
+        this._renderConversations();
+        this._renderThread(true);
+        this._updateSendDisabled();
+        this._updateDeleteConversationPermission();
+        this._updateAddParticipantPermission();
+        this._updateUnreadBadge();
+        this._updateSubtitle();
+        this._hideParticipantsPopover();
+        this.emitter.emit('conversationDeleted', { conversationId });
+      } else {
+        alert(res?.error || 'Failed to delete conversation');
+      }
+    } catch (e){
+      alert('Failed to delete conversation');
+    }
+  }
+
+  async _updateDeleteConversationPermission(){
+    const deleteConvoBtn = this.$header?.querySelector('#cb-delete-convo');
+    if (!deleteConvoBtn) return;
+    const cid = this.state.activeId;
+    if (!cid){
+      deleteConvoBtn.style.display = 'none';
+      return;
+    }
+
+    const token = ++this._deleteConvoCheckToken;
+    deleteConvoBtn.style.display = 'none';
+
+    try {
+      const res = await this.api.canDeleteConversation(cid);
+      if (token !== this._deleteConvoCheckToken) return;
+      const can = !!res?.can;
+      deleteConvoBtn.style.display = can ? '' : 'none';
+      if (can){
+        deleteConvoBtn.setAttribute('data-tip', 'Delete conversation');
+        deleteConvoBtn.setAttribute('aria-label', 'Delete conversation');
+      }
+    } catch (e){
+      if (token !== this._deleteConvoCheckToken) return;
+      deleteConvoBtn.style.display = 'none';
+    }
+  }
+
+  async _updateAddParticipantPermission(){
+    const cid = this.state.activeId;
+    if (!cid){
+      this._canAddParticipant = false;
+      return;
+    }
+
+    const token = ++this._addParticipantCheckToken;
+    this._canAddParticipant = false;
+
+    try {
+      const res = await this.api.canAddParticipant(cid);
+      if (token !== this._addParticipantCheckToken) return;
+      this._canAddParticipant = !!res?.can;
+    } catch (e){
+      if (token !== this._addParticipantCheckToken) return;
+      this._canAddParticipant = false;
+    }
+  }
+
   // Public API
   open(){ this.state.open = true; this.$win.classList.add('cb-open'); this._markThreadAsRead(); this._scrollThreadToEnd(); }
   close(){
     if (this.settings.layout === 'widget' || this.settings.layout === 'embedded'){ this.state.open = false; this.$win.classList.remove('cb-open'); this._hideParticipantsPopover(); }
   }
   toggle(){ (this.state.open ? this.close() : this.open()); }
+  openConversation(conversationId){
+    const c = this.state.conversations.find(x => x.id === conversationId);
+    if (c) {
+      this.state.activeId = c.id;
+      this._renderConversations();
+      this._renderThread(true);
+      this._loadDraft();
+      this._updateUnreadBadge();
+      this._renderPresence();
+      this._updateSendDisabled();
+      this._updateDeleteConversationPermission();
+      this._updateAddParticipantPermission();
+      this._hideParticipantsPopover();
+      this._updateSubtitle();
+    }
+    this.open();
+  }
   _toggleFullscreen(){
     if (this.settings.layout !== 'widget' && this.settings.layout !== 'embedded') return; // disable in page mode
     const btn = this.$header.querySelector('#cb-full');
@@ -938,8 +1225,9 @@ export class ChatbotWidget {
       btn.classList.add('cb-tooltip');
     }
   }
-  async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true); this._updateSendDisabled();} return r.conversation; }
-  async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants.includes(userId)) c.participants.push(userId);} }
+  async startConversation(participants){ const r = await this.api.startConversation(participants); if (r?.ok){ this.state.conversations.push(r.conversation); this.state.activeId = r.conversation.id; this._renderConversations(); this._renderThread(true); this._updateSendDisabled(); this._updateDeleteConversationPermission(); this._updateAddParticipantPermission();} return r.conversation; }
+  async deleteConversation(conversationId){ await this._deleteConversation(conversationId); }
+  async addUserToConversation(conversationId, userId){ const r = await this.api.addParticipant(conversationId, userId); if (r?.ok){ const c = this.state.conversations.find(x => x.id===conversationId); if (c && !c.participants[userId]) c.participants[userId] = userId;} }
   async sendMessage(conversationId, messageDraft){ this.state.activeId = conversationId; this._updateSendDisabled(); await this._sendMessage({ text: messageDraft.text || '', scheduleIn: messageDraft.scheduleIn || null }); }
   async editMessage(messageId, newText){ await this.api.editMessage(messageId, newText); }
   async markAsRead(conversationId, messageIds){ await this.api.markAsRead(conversationId, messageIds); }
@@ -983,7 +1271,7 @@ export class ChatbotWidget {
   _iconMoon(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79"/>' ); }
   _iconPaperclip(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M21.44 11.05 12.37 20.12a6 6 0 1 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66L9.88 17.15a2 2 0 0 1-2.83-2.83l8.13-8.12"/>' ); }
   _iconChevronUp(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="m18 15-6-6-6 6"/>' ); }
-  _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 21v-4a2 2 0 0 1 2-2h4m5-9 3 3M7 17l9-9 3 3-9 9H7z"/>' ); }
+  _iconEdit(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2','stroke-linecap':'round','stroke-linejoin':'round'},'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>' ); }
   _iconUsers(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' ); }
   _iconTrash(sz=14){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M3 6h18"/><path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"/><path d="M10 6V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/>' ); }
   _iconExpand(sz=16){ return h('svg',{width:sz,height:sz,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'2'},'<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/>' ); }
